@@ -4,8 +4,9 @@ use crate::config::{MAX_SYSCALL_NUM};
 pub struct TaskControlBlock {
     pub task_status: TaskStatus,
     pub task_cx: TaskContext,
-    pub syscall_times: [usize; MAX_SYSCALL_NUM],
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
     pub task_first_invoked_time:  usize,
+    pub task_end_time: usize,
 }
 
 #[derive(Copy, Clone, PartialEq)]

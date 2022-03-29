@@ -10,9 +10,9 @@ pub struct TimeVal {
 }
 
 pub struct TaskInfo {
-    status: TaskStatus,
-    syscall_times: [usize; MAX_SYSCALL_NUM],
-    time: usize,
+    pub status: TaskStatus,
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    pub time: usize,
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
@@ -40,13 +40,14 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 // YOUR JOB: Finish sys_task_info to pass testcases
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
     // let status =  get_cur_task_status();
+    let arr =  get_cur_task_systimes();
     unsafe {
-        *ti = TaskInfo {
-        status : TaskStatus::Running,
-        syscall_times : get_cur_task_systimes(),
-        time : get_time() - get_cur_task_first_invoked_time()
+        for i in 0..MAX_SYSCALL_NUM {
+            (*ti).syscall_times[i] = arr[i];
         }
-
+        (*ti).status = TaskStatus::Running;
+        (*ti).time = (get_time() - get_cur_task_first_invoked_time()) / 10000;
     }
+    
     0
 }

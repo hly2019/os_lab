@@ -6,7 +6,7 @@ mod task;
 use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
-use crate::timer::get_time;
+use crate::timer::{get_time, get_time_us};
 use lazy_static::*;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
@@ -31,6 +31,7 @@ lazy_static! {
             task_status: TaskStatus::UnInit,
             syscall_times:[0; MAX_SYSCALL_NUM],
             task_first_invoked_time: 0,
+            task_end_time: 0,
         }; MAX_APP_NUM];
         for (i, t) in tasks.iter_mut().enumerate().take(num_app) {
             t.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -54,7 +55,11 @@ impl TaskManager {
             task.task_first_invoked_time = get_time();
         }
     }
-
+    fn mark_task_end_time(&self, task: &mut TaskControlBlock) {
+        if(task.task_end_time == 0) { 
+            task.task_end_time = get_time();
+        }
+    }
     fn run_first_task(&self) -> ! {
         let mut inner = self.inner.exclusive_access();
         let task0 = &mut inner.tasks[0];
@@ -115,12 +120,16 @@ impl TaskManager {
     fn add_curtask_systime(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].syscall_times[syscall_id] = inner.tasks[current].syscall_times[syscall_id] + 1;
+        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+        inner.tasks[current].syscall_times[syscall_id] += 1;
+        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+
     }
 
-    fn get_cur_task_systimes(&self) ->[usize; MAX_SYSCALL_NUM] {
+    fn get_cur_task_systimes(&self) ->[u32; MAX_SYSCALL_NUM] {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
+        // println!("{}", inner.tasks[current].syscall_times);
         inner.tasks[current].syscall_times
     }
 
@@ -129,6 +138,22 @@ impl TaskManager {
         let current = inner.current_task;
         inner.tasks[current].task_first_invoked_time
     }
+
+    fn get_cur_task_end_time(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        if inner.tasks[current].task_end_time == 0 {
+            get_time()
+        }
+        else {
+            inner.tasks[current].task_end_time
+        }
+    }
+}
+
+
+pub fn get_cur_task_end_time() -> usize {
+    TASK_MANAGER.get_cur_task_end_time()
 }
 
 pub fn get_cur_task_first_invoked_time() -> usize {
@@ -139,7 +164,7 @@ pub fn add_curtask_systimes(id: usize) {
     TASK_MANAGER.add_curtask_systime(id);
 }
 
-pub fn get_cur_task_systimes() ->[usize; MAX_SYSCALL_NUM] {
+pub fn get_cur_task_systimes() ->[u32; MAX_SYSCALL_NUM] {
     TASK_MANAGER.get_cur_task_systimes()
 }
 
