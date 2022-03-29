@@ -5,7 +5,7 @@ use crate::loader::judge_ptr_in_range;
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     let cur = get_cur_task();
     let flag = judge_ptr_in_range(cur, buf, len);
-    match fd + flag as usize {
+    match fd + !flag as usize {
         FD_STDOUT => {
             let slice = unsafe { core::slice::from_raw_parts(buf, len) };
             let str = core::str::from_utf8(slice).unwrap();
