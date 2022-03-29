@@ -6,6 +6,7 @@ mod task;
 use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::timer::get_time;
 use lazy_static::*;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
@@ -28,6 +29,8 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
+            syscall_times:[0; MAX_SYSCALL_NUM],
+            task_first_invoked_time: 0,
         }; MAX_APP_NUM];
         for (i, t) in tasks.iter_mut().enumerate().take(num_app) {
             t.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -46,10 +49,17 @@ lazy_static! {
 }
 
 impl TaskManager {
+    fn mark_task_first_invoked_time(&self, task: &mut TaskControlBlock) {
+        if(task.task_first_invoked_time == 0) { // 不是0, 说明已经标记过第一次调用的时间
+            task.task_first_invoked_time = get_time();
+        }
+    }
+
     fn run_first_task(&self) -> ! {
         let mut inner = self.inner.exclusive_access();
         let task0 = &mut inner.tasks[0];
         task0.task_status = TaskStatus::Running;
+        self.mark_task_first_invoked_time(task0);
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
         drop(inner);
         let mut _unused = TaskContext::zero_init();
@@ -80,11 +90,13 @@ impl TaskManager {
             .find(|id| inner.tasks[*id].task_status == TaskStatus::Ready)
     }
 
+
     fn run_next_task(&self) {
         if let Some(next) = self.find_next_task() {
             let mut inner = self.inner.exclusive_access();
             let current = inner.current_task;
             inner.tasks[next].task_status = TaskStatus::Running;
+            self.mark_task_first_invoked_time(&mut inner.tasks[next]);
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
@@ -98,6 +110,37 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+
+    fn add_curtask_systime(&self, syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].syscall_times[syscall_id] = inner.tasks[current].syscall_times[syscall_id] + 1;
+    }
+
+    fn get_cur_task_systimes(&self) ->[usize; MAX_SYSCALL_NUM] {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].syscall_times
+    }
+
+    fn get_cur_task_first_invoked_time(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].task_first_invoked_time
+    }
+}
+
+pub fn get_cur_task_first_invoked_time() -> usize {
+    TASK_MANAGER.get_cur_task_first_invoked_time()
+}
+
+pub fn add_curtask_systimes(id: usize) {
+    TASK_MANAGER.add_curtask_systime(id);
+}
+
+pub fn get_cur_task_systimes() ->[usize; MAX_SYSCALL_NUM] {
+    TASK_MANAGER.get_cur_task_systimes()
 }
 
 pub fn run_first_task() {
@@ -120,6 +163,7 @@ pub fn suspend_current_and_run_next() {
     mark_current_suspended();
     run_next_task();
 }
+
 
 pub fn exit_current_and_run_next() {
     mark_current_exited();

@@ -1,6 +1,6 @@
-use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus};
-use crate::timer::get_time_us;
+use crate::config::{ MAX_SYSCALL_NUM};
+use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, get_cur_task_systimes,  get_cur_task_first_invoked_time};
+use crate::timer::{get_time_us, get_time};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -39,5 +39,14 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 
 // YOUR JOB: Finish sys_task_info to pass testcases
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    -1
+    // let status =  get_cur_task_status();
+    unsafe {
+        *ti = TaskInfo {
+        status : TaskStatus::Running,
+        syscall_times : get_cur_task_systimes(),
+        time : get_time() - get_cur_task_first_invoked_time()
+        }
+
+    }
+    0
 }
