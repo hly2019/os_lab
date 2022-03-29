@@ -1,6 +1,6 @@
 use crate::config::{ MAX_SYSCALL_NUM};
 use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, get_cur_task_systimes,  get_cur_task_first_invoked_time};
-use crate::timer::{get_time_us, get_time};
+use crate::timer::{get_time_us};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -46,7 +46,7 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
             (*ti).syscall_times[i] = arr[i];
         }
         (*ti).status = TaskStatus::Running;
-        (*ti).time = (get_time() - get_cur_task_first_invoked_time()) / 10000;
+        (*ti).time = (get_time_us() - get_cur_task_first_invoked_time()) / 1000;
     }
     
     0

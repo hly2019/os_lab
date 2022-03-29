@@ -52,19 +52,25 @@ lazy_static! {
 impl TaskManager {
     fn mark_task_first_invoked_time(&self, task: &mut TaskControlBlock) {
         if(task.task_first_invoked_time == 0) { // 不是0, 说明已经标记过第一次调用的时间
-            task.task_first_invoked_time = get_time();
+            task.task_first_invoked_time = get_time_us();
         }
+    }
+
+
+    fn get_cur_task(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        inner.current_task
     }
     fn mark_task_end_time(&self, task: &mut TaskControlBlock) {
         if(task.task_end_time == 0) { 
-            task.task_end_time = get_time();
+            task.task_end_time = get_time_us();
         }
     }
     fn run_first_task(&self) -> ! {
         let mut inner = self.inner.exclusive_access();
         let task0 = &mut inner.tasks[0];
-        task0.task_status = TaskStatus::Running;
         self.mark_task_first_invoked_time(task0);
+        task0.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
         drop(inner);
         let mut _unused = TaskContext::zero_init();
@@ -143,7 +149,7 @@ impl TaskManager {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
         if inner.tasks[current].task_end_time == 0 {
-            get_time()
+            get_time_us()
         }
         else {
             inner.tasks[current].task_end_time
@@ -151,6 +157,9 @@ impl TaskManager {
     }
 }
 
+pub fn get_cur_task() -> usize {
+    TASK_MANAGER.get_cur_task()
+}
 
 pub fn get_cur_task_end_time() -> usize {
     TASK_MANAGER.get_cur_task_end_time()

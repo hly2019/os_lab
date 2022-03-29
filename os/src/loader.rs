@@ -83,3 +83,14 @@ pub fn init_app_cx(app_id: usize) -> usize {
         USER_STACK[app_id].get_sp(),
     ))
 }
+
+pub fn judge_ptr_in_range(app_id: usize, buf: *const u8, len: usize) -> bool {
+    if APP_BASE_ADDRESS + app_id * APP_SIZE_LIMIT < buf as usize
+    && APP_BASE_ADDRESS + (app_id + 1) * APP_SIZE_LIMIT > buf as usize + len 
+    {
+        true
+    }
+    else {
+        false
+    }
+}

@@ -13,15 +13,16 @@ use crate::task::add_curtask_systimes;
 
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
     add_curtask_systimes(syscall_id);
+    // if syscall_id == 64{
+    //     println!("sysid: {}", syscall_id);
+    // }
     match syscall_id {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GET_TIME => sys_get_time(args[0] as *mut TimeVal, args[1]),
-        SYSCALL_TASK_INFO => {
-            let ret = sys_task_info(args[0] as *mut TaskInfo);
-            ret
-        },
+        SYSCALL_TASK_INFO => 
+            sys_task_info(args[0] as *mut TaskInfo),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     }
 }
