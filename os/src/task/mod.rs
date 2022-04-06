@@ -13,7 +13,8 @@ mod context;
 mod switch;
 #[allow(clippy::module_inception)]
 mod task;
-
+use crate::config::{MAX_SYSCALL_NUM};
+use crate::timer::get_time_us;
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
@@ -75,9 +76,47 @@ impl TaskManager {
     ///
     /// Generally, the first task in task list is an idle task (we call it zero process later).
     /// But in ch4, we load apps statically, so the first task is a real app.
+    fn mark_task_first_invoked_time(&self, task: &mut TaskControlBlock) {
+        if(task.task_first_invoked_time == 0) { // 不是0, 说明已经标记过第一次调用的时间
+            task.task_first_invoked_time = get_time_us();
+        }
+    }
+    
+    fn get_cur_task(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        inner.current_task
+    }
+
+    fn add_curtask_systime(&self, syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+        inner.tasks[current].syscall_times[syscall_id] += 1;
+        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+
+    }
+
+    fn get_cur_task_systimes(&self) ->[u32; MAX_SYSCALL_NUM] {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // println!("{}", inner.tasks[current].syscall_times);
+        inner.tasks[current].syscall_times
+    }
+
+    fn get_cur_task_first_invoked_time(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].task_first_invoked_time
+    }
+
+
+
+
+
     fn run_first_task(&self) -> ! {
         let mut inner = self.inner.exclusive_access();
         let next_task = &mut inner.tasks[0];
+        self.mark_task_first_invoked_time(next_task);
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
         drop(inner);
@@ -133,6 +172,7 @@ impl TaskManager {
         if let Some(next) = self.find_next_task() {
             let mut inner = self.inner.exclusive_access();
             let current = inner.current_task;
+            self.mark_task_first_invoked_time(&mut inner.tasks[next]);
             inner.tasks[next].task_status = TaskStatus::Running;
             inner.current_task = next;
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
@@ -148,6 +188,24 @@ impl TaskManager {
         }
     }
 }
+
+pub fn get_cur_task() -> usize {
+    TASK_MANAGER.get_cur_task()
+}
+
+
+pub fn get_cur_task_first_invoked_time() -> usize {
+    TASK_MANAGER.get_cur_task_first_invoked_time()
+}
+
+pub fn add_curtask_systimes(id: usize) {
+    TASK_MANAGER.add_curtask_systime(id);
+}
+
+pub fn get_cur_task_systimes() ->[u32; MAX_SYSCALL_NUM] {
+    TASK_MANAGER.get_cur_task_systimes()
+}
+
 
 /// Run the first task in task list.
 pub fn run_first_task() {

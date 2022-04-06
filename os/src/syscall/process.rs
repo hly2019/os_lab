@@ -1,7 +1,7 @@
 //! Process management syscalls
 
 use crate::config::MAX_SYSCALL_NUM;
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, current_user_token, TaskStatus};
+use crate::task::{get_cur_task_systimes, TaskStatus , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
 use crate::timer::get_time_us;
 use crate::mm::*;
 #[repr(C)]
@@ -70,6 +70,13 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
     let vpn = start_va.floor();
     let ppn = page_table.translate(vpn).unwrap().ppn().0;
     let time_ptr = ppn << 12 | start_va.page_offset(); // ppn左移12位拼上offset
-
+    let arr = get_cur_task_systimes();
+    unsafe{
+        for i in 0..MAX_SYSCALL_NUM{
+            (*(time_ptr as *mut TaskInfo)).syscall_times[i] = arr[i];
+        }
+        (*(time_ptr as *mut TaskInfo)).status = TaskStatus::Running; // TODO:可能需要修改
+        (*(time_ptr as *mut TaskInfo)).time = (get_time_us() - get_cur_task_first_invoked_time()) / 1000;
+    }
     -1
 }
