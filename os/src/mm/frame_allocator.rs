@@ -51,6 +51,7 @@ pub struct StackFrameAllocator {
 
 impl StackFrameAllocator {
     pub fn init(&mut self, l: PhysPageNum, r: PhysPageNum) {
+        println!("cur: {}, end: {}", l.0, r.0);
         self.current = l.0;
         self.end = r.0;
     }
@@ -64,7 +65,9 @@ impl FrameAllocator for StackFrameAllocator {
         }
     }
     fn alloc(&mut self) -> Option<PhysPageNum> {
+        // println!("calling alloc");
         if let Some(ppn) = self.recycled.pop() {
+            // println!("ppn is: {}", ppn);
             Some(ppn.into())
         } else if self.current == self.end {
             None

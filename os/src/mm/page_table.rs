@@ -78,7 +78,7 @@ impl PageTable {
             frames: Vec::new(),
         }
     }
-    fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
+    pub fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
         let mut idxs = vpn.indexes();
         let mut ppn = self.root_ppn;
         let mut result: Option<&mut PageTableEntry> = None;
@@ -134,6 +134,9 @@ impl PageTable {
     }
 }
 
+
+
+
 /// translate a pointer to a mutable u8 Vec through page table
 pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&'static mut [u8]> {
     let page_table = PageTable::from_token(token);
@@ -156,3 +159,25 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     }
     v
 }
+pub fn my_map(vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags, token: usize) -> bool{
+    let mut page_table = PageTable::from_token(token);
+    let pte = page_table.find_pte_create(vpn).unwrap();
+    if pte.is_valid() { // pte is valid, error
+        return false;
+    }
+    // assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+    *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+    true
+}
+
+pub fn my_munmap(vpn: VirtPageNum, token: usize) -> bool {
+    let mut page_table = PageTable::from_token(token);
+    let pte = page_table.find_pte_create(vpn).unwrap();
+    // assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
+    if !pte.is_valid() {
+        return false;
+    }
+    *pte = PageTableEntry::empty();
+    true
+}
+
