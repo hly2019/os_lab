@@ -2,11 +2,34 @@
 
 use crate::mm::translated_byte_buffer;
 use crate::task::current_user_token;
-
+use crate::config::{PAGE_SIZE};
+use crate::mm::*;
 const FD_STDOUT: usize = 1;
 
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
-    match fd {
+    let token = current_user_token();
+    let mut flag = 0;
+    let mut illegal = 0;
+    let mut temp_buf = buf as usize;
+    if buf as usize % PAGE_SIZE != 0 {
+        temp_buf = (((buf as usize) / PAGE_SIZE) as usize) * PAGE_SIZE;
+        println!("buf: {}, temp_buf: {}", buf as usize, temp_buf);
+    }
+    while flag <= len {
+        let cur_addr = temp_buf as usize + flag;
+        let start_va = VirtAddr::from(cur_addr as usize);
+        let vpn = start_va.floor(); // get the vpn
+        let mut page_table = PageTable::from_token(token);
+        let pte = page_table.find_pte_create(vpn).unwrap();
+        if !pte.writable(){
+            illegal = 100;
+            // break;
+            return -1;
+        }
+        flag += PAGE_SIZE;
+    }
+    return -1;
+    match fd + illegal {
         FD_STDOUT => {
             let buffers = translated_byte_buffer(current_user_token(), buf, len);
             for buffer in buffers {
