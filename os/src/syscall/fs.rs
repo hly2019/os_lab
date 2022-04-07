@@ -10,20 +10,23 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
     let mut flag = 0;
     let mut temp_buf = buf as usize;
+    let mut illegal = 0;
     if buf as usize % PAGE_SIZE != 0 {
         temp_buf = (((buf as usize) / PAGE_SIZE) as usize) * PAGE_SIZE;
         println!("buf: {}, temp_buf: {}", buf as usize, temp_buf);
     }
-    while flag <= len {
+    while flag <= len { // 为啥改成<=就对了。。。
         let cur_addr = temp_buf as usize + flag;
         let start_va = VirtAddr::from(cur_addr as usize);
         let vpn = start_va.floor(); // get the vpn
         let mut page_table = PageTable::from_token(token);
         let pte = page_table.find_pte_create(vpn).unwrap();
         let exe = pte.executable();
-        if !pte.writable() || !pte.is_valid()|| !exe{
-            // break;
+        if !pte.writable() || !pte.is_valid() || !pte.PTE_U(){
+            // illegal = 1;
+            // println!("illegal");
             return -1;
+            // break;
         }
         flag += PAGE_SIZE;
     }

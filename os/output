@@ -1,0 +1,120 @@
+(rustup target list | grep "riscv64gc-unknown-none-elf (installed)") || rustup target add riscv64gc-unknown-none-elf
+riscv64gc-unknown-none-elf (installed)
+cargo install cargo-binutils --vers ~0.3
+rustup component add rust-src
+rustup component add llvm-tools-preview
+make[1]: Entering directory '/home/oslab/.ssh/labs-2019011329/user'
+target/riscv64gc-unknown-none-elf/release/ch2b_power_7 target/riscv64gc-unknown-none-elf/release/ch2b_power_3 target/riscv64gc-unknown-none-elf/release/ch2b_power_5 target/riscv64gc-unknown-none-elf/release/ch2b_bad_register target/riscv64gc-unknown-none-elf/release/ch2b_hello_world target/riscv64gc-unknown-none-elf/release/ch2b_bad_instructions target/riscv64gc-unknown-none-elf/release/ch2b_bad_address target/riscv64gc-unknown-none-elf/release/ch3b_yield1 target/riscv64gc-unknown-none-elf/release/ch3_taskinfo target/riscv64gc-unknown-none-elf/release/ch3b_sleep target/riscv64gc-unknown-none-elf/release/ch3b_yield2 target/riscv64gc-unknown-none-elf/release/ch3b_sleep1 target/riscv64gc-unknown-none-elf/release/ch3b_yield0 target/riscv64gc-unknown-none-elf/release/ch4_mmap0 target/riscv64gc-unknown-none-elf/release/ch4_unmap target/riscv64gc-unknown-none-elf/release/ch4_mmap1 target/riscv64gc-unknown-none-elf/release/ch4_mmap2 target/riscv64gc-unknown-none-elf/release/ch4_mmap3 target/riscv64gc-unknown-none-elf/release/ch4_unmap2
+make[1]: Leaving directory '/home/oslab/.ssh/labs-2019011329/user'
+[rustsbi] RustSBI version 0.2.0-alpha.4
+.______       __    __      _______.___________.  _______..______   __
+|   _  \     |  |  |  |    /       |           | /       ||   _  \ |  |
+|  |_)  |    |  |  |  |   |   (----`---|  |----`|   (----`|  |_)  ||  |
+|      /     |  |  |  |    \   \       |  |      \   \    |   _  < |  |
+|  |\  \----.|  `--'  |.----)   |      |  |  .----)   |   |  |_)  ||  |
+| _| `._____| \______/ |_______/       |__|  |_______/    |______/ |__|
+
+[rustsbi] Implementation: RustSBI-QEMU Version 0.0.1
+[rustsbi-dtb] Hart count: cluster0 with 1 cores
+[rustsbi] misa: RV64ACDFIMSU
+[rustsbi] mideleg: ssoft, stimer, sext (0x222)
+[rustsbi] medeleg: ima, ia, bkpt, la, sa, uecall, ipage, lpage, spage (0xb1ab)
+[rustsbi] pmp0: 0x80000000 ..= 0x800fffff (rwx)
+[rustsbi] pmp1: 0x80000000 ..= 0x807fffff (rwx)
+[rustsbi] pmp2: 0x0 ..= 0xffffffffffffff (---)
+[rustsbi] enter supervisor 0x80200000
+[kernel] Hello, world!
+[kernel] back to world!
+Hello, world from user mode program!
+power_3 [10000/200000]
+power_3 [20000/200000]
+power_3 [30000/200000]
+power_3 [40000/200000]
+power_3 [50000/200000]
+power_3 [60000/200000]
+power_5 [10000/140000]
+power_5 [20000/140000]
+power_5 [30000/140000]
+power_5 [40000/140000]
+power_5 [50000/140000]
+power_5 [60000/140000]
+power_5 [70000/140000]
+power_5 [80000/140000]
+power_5 [90000/140000]
+power_5 [100000/140000]
+power_5 [110000/140000]
+power_5 [120000/140000]
+power_5 [130000/140000]
+power_7 [10000/160000]
+power_7 [20000/160000]
+power_7 [30000/160000]
+power_7 [40000/160000]
+power_7 [50000/160000]
+power_7 [60000/160000]
+power_7 [70000/160000]
+power_7 [80000/160000]
+power_7 [90000/160000]
+power_7 [100000/160000]
+power_7 [110000/160000]
+power_7 [120000/160000]
+power_7 [130000/160000]
+power_7 [140000/160000]
+get_time OK! 92
+current time_msec = 94
+AAAAAAAAAA [1/5]
+BBBBBBBBBB [1/5]
+CCCCCCCCCC [1/5]
+nimashigeshab
+start - len = 268431360, len + 1 = 4097, prot = 3;
+start - len = 268439553, len + 1 = 4096, prot = 3;
+start - len = 268439552, len + 1 = 4096, prot = 0;
+Test 04_4 test OK!
+Panicked at src/bin/ch4_unmap.rs:21, assertion failed: `(left == right)`
+Test 04_6 ummap2 OK!
+power_3 [70000/200000]
+power_3 [80000/200000]
+power_3 [90000/200000]
+power_3 [100000/200000]
+power_3 [110000/200000]
+power_3 [120000/200000]
+power_3 [130000/200000]
+power_3 [140000/200000]
+power_3 [150000/200000]
+power_3 [160000/200000]
+power_3 [170000/200000]
+power_3 [180000/200000]
+power_3 [190000/200000]
+power_3 [200000/200000]
+3^200000 = 871008973(MOD 998244353)
+power_5 [140000/140000]
+5^140000 = 386471875(MOD 998244353)
+Test power_5 OK!
+power_7 [150000/160000]
+power_7 [160000/160000]
+7^160000 = 667897727(MOD 998244353)
+Test power_7 OK!
+AAAAAAAAAA [2/5]
+BBBBBBBBBB [2/5]
+  left: `-1`,
+ right: `0`
+Test power_3 OK!
+AAAAAAAAAA [3/5]
+BBBBBBBBBB [3/5]
+CCCCCCCCCC [2/5]
+AAAAAAAAAA [4/5]
+BBBBBBBBBB [4/5]
+CCCCCCCCCC [3/5]
+BBBBBBBBBB [5/5]
+CCCCCCCCCC [4/5]
+AAAAAAAAAA [5/5]
+Test write B OK!
+CCCCCCCCCC [5/5]
+Test write A OK!
+Test write C OK!
+time_msec = 195 after sleeping 100 ticks, delta = 101ms!
+Test sleep1 passed!
+string from task info test
+
+Test task info OK!
+Test sleep OK!
+Panicked at src/task/mod.rs:187 All applications completed!

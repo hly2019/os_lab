@@ -57,12 +57,15 @@ pub fn sys_set_priority(_prio: isize) -> isize {
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
 pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
     if _len == 0 {
+        // println!("len is 0");
         return 0;
     }
-    if _start % PAGE_SIZE != 0 {// the address hasn't been aligned
+    if _start % PAGE_SIZE != 0 || _start < 0x10000000{// the address hasn't been aligned
+        // println!("not aligned");
         return -1;
     }
     if _port & !0x7 != 0 || _port & 0x7 == 0 { // the port was illegal
+        // println!("port illegal");
         return -1;
     }
     let token = current_user_token();
@@ -76,10 +79,12 @@ pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
             let pte_flags = PTEFlags::from_bits(_port as u8).unwrap();
             let succ = my_map(vpn, ppn, pte_flags, token);
             if !succ {
+                println!("un succeed");
                 return -1;
             }
         }
         else { // no physical page available
+            println!("no more memory");
             return -1;
         }
         flag += PAGE_SIZE;
