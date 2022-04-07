@@ -51,7 +51,6 @@ pub struct StackFrameAllocator {
 
 impl StackFrameAllocator {
     pub fn init(&mut self, l: PhysPageNum, r: PhysPageNum) {
-        println!("cur: {}, end: {}", l.0, r.0);
         self.current = l.0;
         self.end = r.0;
     }

@@ -124,7 +124,6 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
         (*(time_ptr as *mut TaskInfo)).status = TaskStatus::Running; // TODO:可能需要修改
         // println!("in process: {}",(*(time_ptr as *mut TaskInfo)).status == TaskStatus::Running );
         (*(time_ptr as *mut TaskInfo)).time = (get_time_us() - get_cur_task_first_invoked_time()) / 1000;
-        println!("time in pro: {}", (*(time_ptr as *mut TaskInfo)).time);
     }
     0
 }

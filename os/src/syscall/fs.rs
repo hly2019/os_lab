@@ -9,7 +9,6 @@ const FD_STDOUT: usize = 1;
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     let token = current_user_token();
     let mut flag = 0;
-    let mut illegal = 0;
     let mut temp_buf = buf as usize;
     if buf as usize % PAGE_SIZE != 0 {
         temp_buf = (((buf as usize) / PAGE_SIZE) as usize) * PAGE_SIZE;
@@ -21,15 +20,15 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
         let vpn = start_va.floor(); // get the vpn
         let mut page_table = PageTable::from_token(token);
         let pte = page_table.find_pte_create(vpn).unwrap();
-        if !pte.writable(){
-            illegal = 100;
+        let exe = pte.executable();
+        if !pte.writable() || !pte.is_valid()|| !exe{
             // break;
             return -1;
         }
         flag += PAGE_SIZE;
     }
     // return -1;
-    match fd + illegal {
+    match fd {
         FD_STDOUT => {
             let buffers = translated_byte_buffer(current_user_token(), buf, len);
             for buffer in buffers {
