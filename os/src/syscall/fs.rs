@@ -28,7 +28,7 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
         }
         flag += PAGE_SIZE;
     }
-    return -1;
+    // return -1;
     match fd + illegal {
         FD_STDOUT => {
             let buffers = translated_byte_buffer(current_user_token(), buf, len);
