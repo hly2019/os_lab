@@ -53,18 +53,59 @@ impl MemorySet {
         start_va: VirtAddr,
         end_va: VirtAddr,
         permission: MapPermission,
-    ) {
+    ) -> bool {
         self.push(
             MapArea::new(start_va, end_va, MapType::Framed, permission),
             None,
-        );
+        )
     }
-    fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
-        map_area.map(&mut self.page_table);
+
+    pub fn cancel_framed_area(&mut self, start: VirtAddr, end: VirtAddr) ->bool {
+        let mut flag = 0;
+        for i in 0..self.areas.len(){
+            let area = &self.areas[i];
+            // let area_start = area.vpn_range.get_start();
+            // let area_end = area.vpn_range.get_end();
+            if !(area.vpn_range.get_start() >= end.ceil() || area.vpn_range.get_end() <= start.floor()) {
+                // 相交
+                flag = i;
+                break;
+            }
+        }
+        if flag == self.areas.len() {
+            panic!("error, illegal page");
+        }
+        // self.unmap()
+        let mut ret = true;
+        for vpn in start.floor().0..end.ceil().0 {
+            ret &= self.areas[flag].unmap_one(&mut self.page_table, VirtPageNum::from(vpn));
+            if ret == false {
+                println!("vpn is: {}", vpn)
+            }
+
+        }
+        self.areas.remove(flag);
+        println!("in memory set");
+        return ret;
+        // self.areas[flag].unmap(&mut self.page_table);
+        // self.areas[flag].vpn_range = VPNRange::new(VirtPageNum::from(0),VirtPageNum::from(0));
+    }
+    pub fn include_framed_area(&mut self, start: VirtPageNum, end: VirtPageNum) -> bool {
+        for i in 0..self.areas.len() {  
+            let area = &self.areas[i];
+            if !(area.vpn_range.get_start() >= end || area.vpn_range.get_end() <= start) { // 相交
+                return true;
+            }
+        }
+        return false;
+    }
+    fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) -> bool {
+        let ret = map_area.map(&mut self.page_table);
         if let Some(data) = data {
             map_area.copy_data(&mut self.page_table, data);
         }
         self.areas.push(map_area);
+        ret
     }
     /// Mention that trampoline is not collected by areas.
     fn map_trampoline(&mut self) {
@@ -243,7 +284,7 @@ impl MapArea {
             map_perm,
         }
     }
-    pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
+    pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> bool {
         let ppn: PhysPageNum;
         match self.map_type {
             MapType::Identical => {
@@ -256,10 +297,12 @@ impl MapArea {
             }
         }
         let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
-        page_table.map(vpn, ppn, pte_flags);
+        let ret = page_table.map(vpn, ppn, pte_flags);
+        // println!("return value is: {}", ret);
+        return ret;
     }
     #[allow(unused)]
-    pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
+    pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> bool {
         #[allow(clippy::single_match)]
         match self.map_type {
             MapType::Framed => {
@@ -267,18 +310,22 @@ impl MapArea {
             }
             _ => {}
         }
-        page_table.unmap(vpn);
+        page_table.unmap(vpn)
     }
-    pub fn map(&mut self, page_table: &mut PageTable) {
+    pub fn map(&mut self, page_table: &mut PageTable) -> bool {
+        let mut ret = true;
         for vpn in self.vpn_range {
-            self.map_one(page_table, vpn);
+            ret &= self.map_one(page_table, vpn);
         }
+        ret
     }
     #[allow(unused)]
-    pub fn unmap(&mut self, page_table: &mut PageTable) {
+    pub fn unmap(&mut self, page_table: &mut PageTable) -> bool {
+        let mut ret = true;
         for vpn in self.vpn_range {
-            self.unmap_one(page_table, vpn);
+            ret &= self.unmap_one(page_table, vpn);
         }
+        return ret;
     }
     /// data: start-aligned but maybe with shorter length
     /// assume that all frames were cleared before
@@ -318,6 +365,11 @@ bitflags! {
         const W = 1 << 2;
         const X = 1 << 3;
         const U = 1 << 4;
+    }
+}
+impl MapPermission{
+    pub fn clear(&mut self) {
+        self.bits = 0;
     }
 }
 

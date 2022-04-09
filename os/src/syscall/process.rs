@@ -2,7 +2,7 @@
 
 use crate::mm::my_map;
 use crate::config::{MAX_SYSCALL_NUM, PAGE_SIZE};
-use crate::task::{get_cur_task_systimes, TaskStatus , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
+use crate::task::{get_cur_task_systimes, TaskStatus, used_map, used_unmap , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
 use crate::timer::get_time_us;
 use crate::mm::*;
 #[repr(C)]
@@ -55,61 +55,93 @@ pub fn sys_set_priority(_prio: isize) -> isize {
 }
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
+pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
     if _len == 0 {
         // println!("len is 0");
         return 0;
     }
-    if _start % PAGE_SIZE != 0 || _start < 0x10000000{// the address hasn't been aligned
+    if _start % PAGE_SIZE != 0{// the address hasn't been aligned
         // println!("not aligned");
         return -1;
     }
-    if _port & !0x7 != 0 || _port & 0x7 == 0 { // the port was illegal
+    if _prot & !0x7 != 0 || _prot & 0x7 == 0 { // the port was illegal
         // println!("port illegal");
         return -1;
     }
     let token = current_user_token();
     let mut flag = 0;
-    while flag < _len { // 若len不对齐，则多映射一部分，保证映射以页为单位
-        let cur_addr = _start + flag;
-        let start_va = VirtAddr::from(cur_addr as usize);
-        let vpn = start_va.floor(); // get the vpn
-        if let Some(ft) = frame_alloc() {
-            let ppn = ft.ppn; // alloc ppn
-            let pte_flags = PTEFlags::from_bits(_port as u8).unwrap();
-            let succ = my_map(vpn, ppn, pte_flags, token);
-            if !succ {
-                println!("un succeed");
-                return -1;
-            }
-        }
-        else { // no physical page available
-            println!("no more memory");
-            return -1;
-        }
-        flag += PAGE_SIZE;
+    let vpn_start = VirtAddr::from(_start);
+    let vpn_end = VirtAddr::from(_start + _len);
+    let mut permission = MapPermission::R;
+    permission.clear();
+    if _prot & 1 == 1 { // readable
+        permission |= MapPermission::R;
     }
+    if _prot & 2 == 1 { // writable
+        permission |= MapPermission::W;
+    }
+    if _prot & 4 == 1 {
+        permission |= MapPermission::X;
+    }
+    let succ = used_map(vpn_start, vpn_end, permission);
+    if succ {
+        return 0;
+    }
+    else {
+        return -1;
+    }
+    // while flag < _len { // 若len不对齐，则多映射一部分，保证映射以页为单位
+    //     let cur_addr = _start + flag;
+    //     // println!("cur_addr is : {}", cur_addr);
+    //     let start_va = VirtAddr::from(cur_addr as usize);
+    //     let vpn = start_va.floor(); // get the vpn
+    //     // println!("vpn is : {}", vpn.0);
+    //     if let Some(ft) = frame_alloc() {
+    //         let ppn = ft.ppn; // alloc ppn
+    //         let pte_flags = PTEFlags::from_bits(_port as u8).unwrap();
+    //         // let succ = my_map(vpn, ppn, pte_flags, token);
+    //         // let succ = used_map(vpn, )
+    //         let succ = used_map()
+    //         if !succ {
+    //             println!("un succeed");
+    //             return -1;
+    //         }
+    //         // find_by_vpn(vpn, token);
 
-    0
+    //     }
+    //     else { // no physical page available
+    //         println!("no more memory");
+    //         return -1;
+    //     }
+    //     flag += PAGE_SIZE;
+    // }
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
     if _start % PAGE_SIZE != 0 {// the address hasn't been aligned
         return -1;
     }
-    let token = current_user_token();
-    let mut flag = 0;
-    while flag < _len { // 若len不对齐，则多映射一部分，保证映射以页为单位
-        let cur_addr = _start + flag;
-        let start_va = VirtAddr::from(cur_addr as usize);
-        let vpn = start_va.floor(); // get the vpn
-        let succ = my_munmap(vpn, token);
-        if !succ {
-            return -1;
-        }
-        flag += PAGE_SIZE;
+    // let token = current_user_token();
+    // let mut flag = 0;
+    // while flag < _len { // 若len不对齐，则多映射一部分，保证映射以页为单位
+    //     let cur_addr = _start + flag;
+    //     let start_va = VirtAddr::from(cur_addr as usize);
+    //     let vpn = start_va.floor(); // get the vpn
+    //     let succ = my_munmap(vpn, token);
+    //     if !succ {
+    //         return -1;
+    //     }
+    //     flag += PAGE_SIZE;
+    // }
+    let vpn_start = VirtAddr::from(_start);
+    let vpn_end = VirtAddr::from(_start + _len);
+    let succ = used_unmap(vpn_start, vpn_end);
+    if succ {
+        return 0;
     }
-    0
+    else {
+        return -1;
+    }
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info

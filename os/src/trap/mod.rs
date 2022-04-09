@@ -24,7 +24,7 @@ use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
     sie, stval, stvec,
 };
-
+use crate::mm::*;
 core::arch::global_asm!(include_str!("trap.S"));
 
 pub fn init() {
@@ -51,6 +51,7 @@ pub fn enable_timer_interrupt() {
 
 #[no_mangle]
 pub fn trap_handler() -> ! {
+    
     set_kernel_trap_entry();
     let cx = current_trap_cx();
     let scause = scause::read();
@@ -82,6 +83,7 @@ pub fn trap_handler() -> ! {
             );
         }
     }
+
     trap_return();
 }
 

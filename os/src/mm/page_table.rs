@@ -4,7 +4,8 @@ use super::{frame_alloc, FrameTracker, PhysPageNum, StepByOne, VirtAddr, VirtPag
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
-
+use crate::task::current_user_token;
+pub use crate::mm::*;
 bitflags! {
     /// page table entry flags
     pub struct PTEFlags: u8 {
@@ -32,6 +33,7 @@ impl PageTableEntry {
             bits: ppn.0 << 10 | flags.bits as usize,
         }
     }
+
     pub fn empty() -> Self {
         PageTableEntry { bits: 0 }
     }
@@ -118,16 +120,40 @@ impl PageTable {
         result
     }
     #[allow(unused)]
-    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
+    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) -> bool {
         let pte = self.find_pte_create(vpn).unwrap();
-        assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+        // assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+        if pte.is_valid() {
+            return false;
+        }
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+        return true;
+    }
+    pub fn find_vpn(&mut self, vpn: VirtPageNum) {
+        let pte = self.find_pte_create(vpn).unwrap();
+        println!("find vpn: pte: {}, vpn: {}", pte.bits, vpn.0);
+    }
+    pub fn my_map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) -> bool {
+        let pte = self.find_pte_create(vpn).unwrap();
+        println!("in mymap: pte: {}, vpn: {}, curuser {}", pte.bits, vpn.0, current_user_token());
+        if pte.is_valid() {
+            return false;
+        }
+        *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+        let test_pte = self.find_pte_create(vpn).unwrap();
+        println!("after mapped, pte is: {}, curuser {}", test_pte.bits, current_user_token());
+        return true;
     }
     #[allow(unused)]
-    pub fn unmap(&mut self, vpn: VirtPageNum) {
+    pub fn unmap(&mut self, vpn: VirtPageNum) -> bool {
         let pte = self.find_pte_create(vpn).unwrap();
-        assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
+        // assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
+        if pte.is_valid() {
+            return false;
+        }
         *pte = PageTableEntry::empty();
+        return true;
+
     }
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.find_pte(vpn).copied()
@@ -138,6 +164,10 @@ impl PageTable {
 }
 
 
+pub fn find_by_vpn(vpn: VirtPageNum, token: usize) {
+    let mut page_table = PageTable::from_token(token);
+    page_table.find_vpn(vpn);
+}
 
 
 /// translate a pointer to a mutable u8 Vec through page table
@@ -162,25 +192,50 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     }
     v
 }
-pub fn my_map(vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags, token: usize) -> bool{
+pub fn my_map(vpn: VirtPageNum, ppn: PhysPageNum, permission: MapPermission, token: usize) -> bool{
     let mut page_table = PageTable::from_token(token);
-    let pte = page_table.find_pte_create(vpn).unwrap();
-    if pte.is_valid() { // pte is valid, error
-        return false;
-    }
-    // assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
-    *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
     true
+    // page_table.my_map(vpn, ppn, flags)
+    // if let Some(pt) = page_table.find_pte(vpn) {
+    //     // println!("has pt: {}", pt.ppn().0);
+    //     if pt.is_valid(){
+    //         return false;
+    //     }
+    // }
+    // let pte = page_table.find_pte_create(vpn).unwrap();
+    // println!("Before: vpn is : {}, pte bits is: {}, pte valid is {}", vpn.0, pte.bits, pte.is_valid());
+    // println!("is valid?: {}, vpn: {}, curuser: {}", pte.ppn().0, vpn.0, current_user_token());
+    // if pte.is_valid() { // pte is valid, error
+    //     println!("is already valid");
+    //     return false;
+    // }
+    // page_table.map(vpn, ppn, flags);
+    // assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+    // *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+    // println!("After: vpn is : {}, pte bits is: {}, pte valid is {}", vpn.0, pte.bits, pte.is_valid());
+    // println!("after is valid?: {}, vpn: {}, curuser: {}", pte.ppn().0, vpn.0, current_user_token());
+
+    // true
 }
 
 pub fn my_munmap(vpn: VirtPageNum, token: usize) -> bool {
-    let mut page_table = PageTable::from_token(token);
-    let pte = page_table.find_pte_create(vpn).unwrap();
-    // assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
-    if !pte.is_valid() {
+    let page_table = PageTable::from_token(token);
+    // let pte = page_table.find_pte(vpn).unwrap();
+    // // assert!(pte.is_valid(), "vpn {:?} is invalid before unmapping", vpn);
+    // if !pte.is_valid() {
+    //     return false;
+    // }
+    // pte = PageTableEntry::empty();
+    if let Some(mut pte) = page_table.find_pte(vpn) {
+        if !pte.is_valid() {
+            return false;
+        }
+        println!("pte: {}, vpn: {}", pte.ppn().0, vpn.0);
+        pte = &mut PageTableEntry::empty();
+    }
+    else {
         return false;
     }
-    *pte = PageTableEntry::empty();
     true
 }
 

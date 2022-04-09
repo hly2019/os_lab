@@ -22,7 +22,7 @@ use alloc::vec::Vec;
 use lazy_static::*;
 pub use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
-
+use crate::mm::*;
 pub use context::TaskContext;
 
 /// The task manager, where all the tasks are managed.
@@ -87,6 +87,39 @@ impl TaskManager {
         inner.current_task
     }
 
+    pub fn map(&self, vpn_start: VirtAddr, vpn_end: VirtAddr, permission:MapPermission) -> bool {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+        // inner.tasks[current].memory_set.map_one();
+        if inner.tasks[current].memory_set.include_framed_area(vpn_start.floor(), vpn_end.ceil()) {
+            return false;
+        }
+        else {
+            return inner.tasks[current].memory_set.insert_framed_area(VirtAddr::from(vpn_start), VirtAddr::from(vpn_end), permission);
+            // return true;
+        }
+    }
+
+    pub fn unmap(&self, vpn_start: VirtAddr, vpn_end: VirtAddr) -> bool {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+        // inner.tasks[current].memory_set.map_one();
+        if !inner.tasks[current].memory_set.include_framed_area(vpn_start.floor(), vpn_end.ceil()) {
+            // 没人包含，不对
+            println!("in unmap case 1");
+            return false;
+        }
+        else {
+            println!("in unmap case 2");
+            return inner.tasks[current].memory_set.cancel_framed_area(vpn_start, vpn_end);
+            // inner.tasks[current].memory_set.insert_framed_area(VirtAddr::from(vpn_start), VirtAddr::from(vpn_end), permission);
+            // return true;
+        }
+    }
+
+
     fn add_curtask_systime(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
@@ -95,6 +128,14 @@ impl TaskManager {
         // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
 
     }
+
+    // fn get_cur_task_mem_set(&self) -> MemorySet {
+    //     let mut inner = self.inner.exclusive_access();
+    //     let current = inner.current_task;
+    //     // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+    //     inner.tasks[current].memory_set
+        
+    // }
 
     fn get_cur_task_systimes(&self) ->[u32; MAX_SYSCALL_NUM] {
         let inner = self.inner.exclusive_access();
@@ -193,7 +234,14 @@ pub fn get_cur_task() -> usize {
     TASK_MANAGER.get_cur_task()
 }
 
+// map(&self, vpn_start: VirtAddr, vpn_end: VirtAddr, permission:MapPermission)
+pub fn used_map(vpn_start: VirtAddr, vpn_end: VirtAddr, permission: MapPermission) -> bool {
+    TASK_MANAGER.map(vpn_start, vpn_end, permission)
+}
 
+pub fn used_unmap(vpn_start: VirtAddr, vpn_end: VirtAddr)-> bool {
+    TASK_MANAGER.unmap(vpn_start, vpn_end)
+}
 pub fn get_cur_task_first_invoked_time() -> usize {
     TASK_MANAGER.get_cur_task_first_invoked_time()
 }
