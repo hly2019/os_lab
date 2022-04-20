@@ -120,29 +120,27 @@ impl PageTable {
         result
     }
     #[allow(unused)]
-    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) -> bool {
+    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
+        // let pte = self.find_pte_create(vpn).unwrap();
+        // // assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
+        // if pte.is_valid() {
+        //     return false;
+        // }
+        // *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+        // return true;
         let pte = self.find_pte_create(vpn).unwrap();
-        // assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
-        if pte.is_valid() {
-            return false;
-        }
+        assert!(!pte.is_valid(), "vpn {:?} is mapped before mapping", vpn);
         *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
-        return true;
-    }
-    pub fn find_vpn(&mut self, vpn: VirtPageNum) {
-        let pte = self.find_pte_create(vpn).unwrap();
-        println!("find vpn: pte: {}, vpn: {}", pte.bits, vpn.0);
-    }
-    pub fn my_map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) -> bool {
-        let pte = self.find_pte_create(vpn).unwrap();
-        println!("in mymap: pte: {}, vpn: {}, curuser {}", pte.bits, vpn.0, current_user_token());
-        if pte.is_valid() {
-            return false;
-        }
-        *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
-        let test_pte = self.find_pte_create(vpn).unwrap();
-        println!("after mapped, pte is: {}, curuser {}", test_pte.bits, current_user_token());
-        return true;
+        // unsafe {
+        //     if vpn.0 != 65536 {
+        //         return;
+        //     }
+        //     println!("test addr {}", vpn.0 );
+            
+        //     *((ppn.0 * 4096) as *mut u8) = 1;
+        //     println!("xaaaaaaaaaaaaaaaaaaaaaaaaaai");
+        // }
+
     }
     #[allow(unused)]
     pub fn unmap(&mut self, vpn: VirtPageNum) -> bool {
@@ -164,10 +162,6 @@ impl PageTable {
 }
 
 
-pub fn find_by_vpn(vpn: VirtPageNum, token: usize) {
-    let mut page_table = PageTable::from_token(token);
-    page_table.find_vpn(vpn);
-}
 
 
 /// translate a pointer to a mutable u8 Vec through page table

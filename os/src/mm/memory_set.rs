@@ -53,11 +53,17 @@ impl MemorySet {
         start_va: VirtAddr,
         end_va: VirtAddr,
         permission: MapPermission,
-    ) -> bool {
+    ) {
+        println!("start va before insert maparea: {}", start_va.0 / 4096);
         self.push(
             MapArea::new(start_va, end_va, MapType::Framed, permission),
             None,
-        )
+        );
+        unsafe {
+            // *(start_va.0 as *mut u8) = 1;
+            // println!("xaaaaaaaaaaaaaaaaaaaaaaaaaai");
+        }
+
     }
 
     pub fn cancel_framed_area(&mut self, start: VirtAddr, end: VirtAddr) ->bool {
@@ -95,15 +101,24 @@ impl MemorySet {
 
     pub fn judge_map_right(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
         let mut start = start_va.0;
-        while start <= end_va.0 {
+        while start < end_va.0 {
             let mut flag = true;
             for i in 0..self.areas.len() {
-                let area: &MapArea = &self.areas[i];
-                if area.data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
-                    flag = false;
+                let mut area: &MapArea = &self.areas[i];
+                if VirtPageNum::from(area.vpn_range.get_start().0).0 <= start 
+                && start < VirtPageNum::from(area.vpn_range.get_end().0).0 {
+                    println!("jajajajajajajaja {}, start is {}", VirtPageNum::from(area.vpn_range.get_start().0).0,start);
+                    // println!("i is {},start is: {}, contain?: {}",i, start, self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)));
+                    // for key in self.areas[i].data_frames.keys() {
+                    //     println!("key is {}", key.0);
+                    // }
+                    if self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
+                        flag = false;
+                    }
                 }
             }
             if !flag { // no maparea contains start, fail.
+                println!("return: {}", false);
                 return false;
             }
             start += 1;
@@ -112,23 +127,12 @@ impl MemorySet {
     }
 
     pub fn judge_unmap_right(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
-        // for i in 0..self.areas.len() {
-        //     let area: &MapArea = &self.areas[i];
-        //     let mut start = start_va;
-        //     while start < end_va {
-        //         if area.data_frames.contains_key(&start) {
-        //             return false;
-        //         }
-        //         start = VirtPageNum::from(start.0 + 1);
-        //     }
-            
-        // }
         let mut start = start_va.0;
-        while start <= end_va.0 {
+        while start < end_va.0 {
             let mut flag = false;
             for i in 0..self.areas.len() {
                 let area: &MapArea = &self.areas[i];
-                if area.data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
+                if self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
                     flag = true;
                 }
             }
@@ -144,14 +148,17 @@ impl MemorySet {
         let mut start = start_va.0;
         let mut left = end_va.0;
         let mut right = start_va.0;
-        while start <= end_va.0 {
+        while start < end_va.0 {
             let mut flag = false;
             for i in 0..self.areas.len() {
                 let area: &MapArea = &self.areas[i];
-                if area.vpn_range.get_start().0 <= start && start <= area.vpn_range.get_end().0 { // 包含
+                if VirtPageNum::from(area.vpn_range.get_start().0).0 <= start && start < VirtPageNum::from(area.vpn_range.get_end().0).0 { // 包含
+                    println!("hahahahahahah {}, start is {}", VirtPageNum::from(area.vpn_range.get_start().0).0, start);
                     // 之前已经判断过，所有frames都不包含start的映射，可以直接添加
                     flag = true;
                     self.areas[i].map_one(&mut self.page_table, VirtPageNum::from(start));
+                    println!("malegebi!: {}, i is {}", self.areas[i].data_frames.contains_key(&VirtPageNum::from(65536)), i);
+                    println!("map one vpn: {}", start);
                 }
             }
             if !flag { // 不包含
@@ -164,17 +171,23 @@ impl MemorySet {
             }
             start += 1;
         }
-        
-        self.push(MapArea::new(VirtAddr::from(VirtPageNum::from(left)), VirtAddr::from(VirtPageNum::from(right)),
-        MapType::Framed, permission), None);
+        right += 1;
+        // println!("caonimalegedashabi {}", VirtAddr::from(VirtPageNum::from(left)).0 / 4096);
+        self.insert_framed_area(VirtAddr::from(left * 4096), VirtAddr::from(right * 4096), permission);
+        // println!("shabishabi: {}",  area.data_frames.len());
+        println!("in memory map, add new maparea, left: {}, right: {}", left, right);
     }
 
     pub fn my_unmap(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) {
         let mut start = start_va.0;
-        while start <= end_va.0 {
+        while start < end_va.0 {
             for i in 0..self.areas.len() {
+                if self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)) {
+
+                    self.areas[i].unmap_one(&mut self.page_table, VirtPageNum::from(start));
+                    println!("unmap one vpn: {}", start);
+                }
                 // let area: &MapArea = &self.areas[i];
-                self.areas[i].unmap_one(&mut self.page_table, VirtPageNum::from(start));
             }
             start += 1
         }
@@ -199,13 +212,20 @@ impl MemorySet {
         }
         return false;
     }
-    fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) -> bool {
-        let ret = map_area.map(&mut self.page_table);
+    fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
+        // let ret = map_area.map(&mut self.page_table);
+        // if let Some(data) = data {
+        //     map_area.copy_data(&mut self.page_table, data);
+        // }
+        // self.areas.push(map_area);
+        // ret
+        map_area.map(&mut self.page_table);
         if let Some(data) = data {
             map_area.copy_data(&mut self.page_table, data);
         }
         self.areas.push(map_area);
-        ret
+
+
     }
     /// Mention that trampoline is not collected by areas.
     fn map_trampoline(&mut self) {
@@ -384,7 +404,7 @@ impl MapArea {
             map_perm,
         }
     }
-    pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> bool {
+    pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
         let ppn: PhysPageNum;
         match self.map_type {
             MapType::Identical => {
@@ -396,10 +416,12 @@ impl MapArea {
                 self.data_frames.insert(vpn, frame);
             }
         }
-        let pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
-        let ret = page_table.map(vpn, ppn, pte_flags);
-        // println!("return value is: {}", ret);
-        return ret;
+        let mut pte_flags = PTEFlags::from_bits(self.map_perm.bits).unwrap();
+        // if vpn.0 == 65536 {
+
+        //     pte_flags |= PTEFlags::U;
+        // }
+        page_table.map(vpn, ppn, pte_flags);
     }
     #[allow(unused)]
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> bool {
@@ -412,12 +434,18 @@ impl MapArea {
         }
         page_table.unmap(vpn)
     }
-    pub fn map(&mut self, page_table: &mut PageTable) -> bool {
-        let mut ret = true;
+    pub fn map(&mut self, page_table: &mut PageTable) {
+        // let mut vpn = self.vpn_range.get_start().0;
+        // let vpn_end = self.vpn_range.get_end().0;
+        // while vpn <= vpn_end {
+        // println!("self vpn range: {} ,end: {}", self.vpn_range.get_start().0, self.vpn_range.get_end().0);
         for vpn in self.vpn_range {
-            ret &= self.map_one(page_table, vpn);
+            // println!("in traverse, vpn is: {}", vpn);
+            self.map_one(page_table, VirtPageNum::from(vpn));
+            // vpn += 1;
         }
-        ret
+
+        // println!("self.data_fram len: {}, vpn range:", self.data_frames.len());
     }
     #[allow(unused)]
     pub fn unmap(&mut self, page_table: &mut PageTable) -> bool {

@@ -4,7 +4,7 @@ cargo install cargo-binutils --vers ~0.3
 rustup component add rust-src
 rustup component add llvm-tools-preview
 make[1]: Entering directory '/home/oslab/.ssh/labs-2019011329/user'
-target/riscv64gc-unknown-none-elf/release/ch2b_power_7 target/riscv64gc-unknown-none-elf/release/ch2b_power_3 target/riscv64gc-unknown-none-elf/release/ch2b_power_5 target/riscv64gc-unknown-none-elf/release/ch2b_bad_register target/riscv64gc-unknown-none-elf/release/ch2b_hello_world target/riscv64gc-unknown-none-elf/release/ch2b_bad_instructions target/riscv64gc-unknown-none-elf/release/ch2b_bad_address target/riscv64gc-unknown-none-elf/release/ch3b_yield1 target/riscv64gc-unknown-none-elf/release/ch3_taskinfo target/riscv64gc-unknown-none-elf/release/ch3b_sleep target/riscv64gc-unknown-none-elf/release/ch3b_yield2 target/riscv64gc-unknown-none-elf/release/ch3b_sleep1 target/riscv64gc-unknown-none-elf/release/ch3b_yield0 target/riscv64gc-unknown-none-elf/release/ch4_mmap0 target/riscv64gc-unknown-none-elf/release/ch4_unmap target/riscv64gc-unknown-none-elf/release/ch4_mmap1 target/riscv64gc-unknown-none-elf/release/ch4_mmap2 target/riscv64gc-unknown-none-elf/release/ch4_mmap3 target/riscv64gc-unknown-none-elf/release/ch4_unmap2
+target/riscv64gc-unknown-none-elf/release/ch2b_power_3 target/riscv64gc-unknown-none-elf/release/ch2b_power_7 target/riscv64gc-unknown-none-elf/release/ch2b_power_5 target/riscv64gc-unknown-none-elf/release/ch2b_bad_register target/riscv64gc-unknown-none-elf/release/ch2b_hello_world target/riscv64gc-unknown-none-elf/release/ch2b_bad_instructions target/riscv64gc-unknown-none-elf/release/ch2b_bad_address target/riscv64gc-unknown-none-elf/release/ch3b_yield0 target/riscv64gc-unknown-none-elf/release/ch3b_yield1 target/riscv64gc-unknown-none-elf/release/ch3_taskinfo target/riscv64gc-unknown-none-elf/release/ch3b_sleep target/riscv64gc-unknown-none-elf/release/ch3b_yield2 target/riscv64gc-unknown-none-elf/release/ch3b_sleep1 target/riscv64gc-unknown-none-elf/release/ch4_mmap0 target/riscv64gc-unknown-none-elf/release/ch4_unmap target/riscv64gc-unknown-none-elf/release/ch4_mmap1 target/riscv64gc-unknown-none-elf/release/ch4_mmap3 target/riscv64gc-unknown-none-elf/release/ch4_mmap2 target/riscv64gc-unknown-none-elf/release/ch4_unmap2
 make[1]: Leaving directory '/home/oslab/.ssh/labs-2019011329/user'
 [rustsbi] RustSBI version 0.2.0-alpha.4
 .______       __    __      _______.___________.  _______..______   __
@@ -25,17 +25,27 @@ make[1]: Leaving directory '/home/oslab/.ssh/labs-2019011329/user'
 [rustsbi] enter supervisor 0x80200000
 [kernel] Hello, world!
 [kernel] back to world!
+start va before insert maparea: 4503599627370493
+start va before insert maparea: 4503599627370490
+start va before insert maparea: 4503599627370487
+start va before insert maparea: 4503599627370484
+start va before insert maparea: 4503599627370481
+start va before insert maparea: 4503599627370478
+start va before insert maparea: 4503599627370475
+start va before insert maparea: 4503599627370472
+start va before insert maparea: 4503599627370469
+start va before insert maparea: 4503599627370466
+start va before insert maparea: 4503599627370463
+start va before insert maparea: 4503599627370460
+start va before insert maparea: 4503599627370457
+start va before insert maparea: 4503599627370454
+start va before insert maparea: 4503599627370451
+start va before insert maparea: 4503599627370448
+start va before insert maparea: 4503599627370445
+start va before insert maparea: 4503599627370442
+start va before insert maparea: 4503599627370439
 Hello, world from user mode program!
 power_3 [10000/200000]
-power_3 [20000/200000]
-power_3 [30000/200000]
-power_3 [40000/200000]
-power_3 [50000/200000]
-power_3 [60000/200000]
-power_3 [70000/200000]
-power_3 [80000/200000]
-power_3 [90000/200000]
-power_3 [100000/200000]
 power_5 [10000/140000]
 power_5 [20000/140000]
 power_5 [30000/140000]
@@ -53,24 +63,64 @@ power_5 [140000/140000]
 5^140000 = 386471875(MOD 998244353)
 Test power_5 OK!
 power_7 [10000/160000]
-get_time OK! 92
-current time_msec = 94
+power_7 [20000/160000]
+power_7 [30000/160000]
+power_7 [40000/160000]
+power_7 [50000/160000]
+power_7 [60000/160000]
+power_7 [70000/160000]
+get_time OK! 63
+current time_msec = 65
 AAAAAAAAAA [1/5]
 BBBBBBBBBB [1/5]
 CCCCCCCCCC [1/5]
-nimashigeshab
+in mmap, start: 65536, end: 65537
+going to mmap
+start va before insert maparea: 65536
+in memory map, add new maparea, left: 65536, right: 65537
+in mmap, start: 65536, end: 65537
+going to mmap
+start va before insert maparea: 65536
+in memory map, add new maparea, left: 65536, right: 65537
+in mmap, start: 65536, end: 65537
+going to mmap
+start va before insert maparea: 65536
+in memory map, add new maparea, left: 65536, right: 65537
+in mmap, start: 65536, end: 65537
+going to mmap
+start va before insert maparea: 65536
+in memory map, add new maparea, left: 65536, right: 65537
+__________________________________________
+in mmap, start: 65535, end: 65537
+jajajajajajajaja 65536, start is 65536
+return: false
 Test 04_4 test OK!
-in unmap case 2
-vpn is: 65536
-in memory set
-Panicked at src/bin/ch4_unmap.rs:20, assertion failed: `(left == right)`
-  left: `-1`,
- right: `0`
-in unmap case 2
-vpn is: 65536
-vpn is: 65537
-in memory set
+in user, start: 65536, end: 65537
+in mmap, start: 65536, end: 65537
+going to mmap
+start va before insert maparea: 65536
+in memory map, add new maparea, left: 65536, right: 65537
+in mmap, start: 65537, end: 65539
+going to mmap
+start va before insert maparea: 65537
+in memory map, add new maparea, left: 65537, right: 65539
+in user2, start: 65537, end: 65539
+unmap one vpn: 65536
+sbsbsbs
+in mmap, start: 65536, end: 65537
+going to mmap
+start va before insert maparea: 65536
+in memory map, add new maparea, left: 65536, right: 65537
 Test 04_6 ummap2 OK!
+power_3 [20000/200000]
+power_3 [30000/200000]
+power_3 [40000/200000]
+power_3 [50000/200000]
+power_3 [60000/200000]
+power_3 [70000/200000]
+power_3 [80000/200000]
+power_3 [90000/200000]
+power_3 [100000/200000]
 power_3 [110000/200000]
 power_3 [120000/200000]
 power_3 [130000/200000]
@@ -81,14 +131,6 @@ power_3 [170000/200000]
 power_3 [180000/200000]
 power_3 [190000/200000]
 power_3 [200000/200000]
-3^200000 = 871008973(MOD 998244353)
-Test power_3 OK!
-power_7 [20000/160000]
-power_7 [30000/160000]
-power_7 [40000/160000]
-power_7 [50000/160000]
-power_7 [60000/160000]
-power_7 [70000/160000]
 power_7 [80000/160000]
 power_7 [90000/160000]
 power_7 [100000/160000]
@@ -102,23 +144,10 @@ power_7 [160000/160000]
 Test power_7 OK!
 AAAAAAAAAA [2/5]
 BBBBBBBBBB [2/5]
-BBBBBBBBBB [3/5]
 CCCCCCCCCC [2/5]
-AAAAAAAAAA [3/5]
-BBBBBBBBBB [4/5]
-CCCCCCCCCC [3/5]
-AAAAAAAAAA [4/5]
-BBBBBBBBBB [5/5]
-CCCCCCCCCC [4/5]
-AAAAAAAAAA [5/5]
-Test write B OK!
-CCCCCCCCCC [5/5]
-Test write A OK!
-Test write C OK!
-time_msec = 195 after sleeping 100 ticks, delta = 101ms!
-Test sleep1 passed!
-string from task info test
-
-Test task info OK!
-Test sleep OK!
-Panicked at src/task/mod.rs:228 All applications completed!
+goubi
+Test 04_1 OK!
+in mmap, start: 65535, end: 65537
+going to mmap
+start va before insert maparea: 65535
+Panicked at src/mm/page_table.rs:132 vpn VPN:0x10000 is mapped before mapping

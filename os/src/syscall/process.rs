@@ -2,7 +2,7 @@
 
 // use crate::mm::my_map;
 use crate::config::{MAX_SYSCALL_NUM, PAGE_SIZE};
-use crate::task::{get_cur_task_systimes, my_umap, my_mmap ,judge_map_right ,judge_unmap_right ,TaskStatus, used_map, used_unmap , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
+use crate::task::{get_cur_task_systimes, my_umap, my_mmap ,judge_map_right ,judge_unmap_right ,TaskStatus, used_unmap , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
 use crate::timer::get_time_us;
 use crate::mm::*;
 #[repr(C)]
@@ -72,15 +72,14 @@ pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
     let mut flag = 0;
     let vpn_start = VirtAddr::from(_start);
     let vpn_end = VirtAddr::from(_start + _len);
-    let mut permission = MapPermission::R;
-    permission.clear();
-    if _prot & 1 == 1 { // readable
+    let mut permission = MapPermission::U;
+    if _prot & 1 != 0 { // readable
         permission |= MapPermission::R;
     }
-    if _prot & 2 == 1 { // writable
+    if _prot & 2 != 0 { // writable
         permission |= MapPermission::W;
     }
-    if _prot & 4 == 1 {
+    if _prot & 4 != 0 {
         permission |= MapPermission::X;
     }
     // let succ = used_map(vpn_start, vpn_end, permission);
@@ -90,11 +89,15 @@ pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
     // else {
     //     return -1;
     // }
-    if !judge_map_right(vpn_start.floor(), vpn_end.ceil()) {
+    let ceil = VirtPageNum::from(vpn_end.ceil().0);
+    println!("in mmap, start: {}, end: {}", VirtPageNum::from(vpn_start.floor().0).0, VirtPageNum::from(vpn_end.ceil().0).0);
+
+    if !judge_map_right(vpn_start.floor(), ceil) {
         return -1;
     }
-
-    my_mmap(vpn_start.floor(), vpn_end.ceil(), permission);
+    println!("going to mmap");
+    
+    my_mmap(vpn_start.floor(), ceil, permission);
 
     // while flag < _len { // 若len不对齐，则多映射一部分，保证映射以页为单位
     //     let cur_addr = _start + flag;
@@ -142,10 +145,11 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
     // }
     let vpn_start = VirtAddr::from(_start);
     let vpn_end = VirtAddr::from(_start + _len);
-    if !judge_unmap_right(vpn_start.floor(), vpn_end.ceil()) {
+    let ceil = VirtPageNum::from(vpn_end.ceil().0);
+    if !judge_unmap_right(vpn_start.floor(), ceil) {
         return -1;
     }
-    my_umap(vpn_start.floor(), vpn_end.ceil());
+    my_umap(vpn_start.floor(), ceil);
 
     
     0

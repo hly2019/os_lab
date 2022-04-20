@@ -111,19 +111,19 @@ impl TaskManager {
         inner.tasks[current].memory_set.judge_map_right(start_va, end_va)
     }
 
-    pub fn map(&self, vpn_start: VirtAddr, vpn_end: VirtAddr, permission:MapPermission) -> bool {
-        let mut inner = self.inner.exclusive_access();
-        let current = inner.current_task;
-        // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
-        // inner.tasks[current].memory_set.map_one();
-        if inner.tasks[current].memory_set.include_framed_area(vpn_start.floor(), vpn_end.ceil()) {
-            return false;
-        }
-        else {
-            return inner.tasks[current].memory_set.insert_framed_area(VirtAddr::from(vpn_start), VirtAddr::from(vpn_end), permission);
-            // return true;
-        }
-    }
+    // pub fn map(&self, vpn_start: VirtAddr, vpn_end: VirtAddr, permission:MapPermission) -> bool {
+    //     let mut inner = self.inner.exclusive_access();
+    //     let current = inner.current_task;
+    //     // println!("{}", inner.tasks[current].syscall_times[syscall_id]);
+    //     // inner.tasks[current].memory_set.map_one();
+    //     if inner.tasks[current].memory_set.include_framed_area(vpn_start.floor(), vpn_end.ceil()) {
+    //         return false;
+    //     }
+    //     else {
+    //         return inner.tasks[current].memory_set.insert_framed_area(VirtAddr::from(vpn_start), VirtAddr::from(vpn_end), permission);
+    //         // return true;
+    //     }
+    // }
 
     pub fn unmap(&self, vpn_start: VirtAddr, vpn_end: VirtAddr) -> bool {
         let mut inner = self.inner.exclusive_access();
@@ -259,9 +259,9 @@ pub fn get_cur_task() -> usize {
 }
 
 // map(&self, vpn_start: VirtAddr, vpn_end: VirtAddr, permission:MapPermission)
-pub fn used_map(vpn_start: VirtAddr, vpn_end: VirtAddr, permission: MapPermission) -> bool {
-    TASK_MANAGER.map(vpn_start, vpn_end, permission)
-}
+// pub fn used_map(vpn_start: VirtAddr, vpn_end: VirtAddr, permission: MapPermission) -> bool {
+//     TASK_MANAGER.map(vpn_start, vpn_end, permission)
+// }
 
 pub fn my_mmap(vpn_start: VirtPageNum, vpn_end: VirtPageNum, permission: MapPermission) {
     TASK_MANAGER.my_mmap(vpn_start, vpn_end, permission);
