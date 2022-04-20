@@ -1,8 +1,8 @@
 //! Process management syscalls
 
-use crate::mm::my_map;
+// use crate::mm::my_map;
 use crate::config::{MAX_SYSCALL_NUM, PAGE_SIZE};
-use crate::task::{get_cur_task_systimes, TaskStatus, used_map, used_unmap , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
+use crate::task::{get_cur_task_systimes, my_umap, my_mmap ,judge_map_right ,judge_unmap_right ,TaskStatus, used_map, used_unmap , get_cur_task_first_invoked_time, exit_current_and_run_next, suspend_current_and_run_next, current_user_token};
 use crate::timer::get_time_us;
 use crate::mm::*;
 #[repr(C)]
@@ -83,13 +83,19 @@ pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
     if _prot & 4 == 1 {
         permission |= MapPermission::X;
     }
-    let succ = used_map(vpn_start, vpn_end, permission);
-    if succ {
-        return 0;
-    }
-    else {
+    // let succ = used_map(vpn_start, vpn_end, permission);
+    // if succ {
+    //     return 0;
+    // }
+    // else {
+    //     return -1;
+    // }
+    if !judge_map_right(vpn_start.floor(), vpn_end.ceil()) {
         return -1;
     }
+
+    my_mmap(vpn_start.floor(), vpn_end.ceil(), permission);
+
     // while flag < _len { // 若len不对齐，则多映射一部分，保证映射以页为单位
     //     let cur_addr = _start + flag;
     //     // println!("cur_addr is : {}", cur_addr);
@@ -115,6 +121,7 @@ pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
     //     }
     //     flag += PAGE_SIZE;
     // }
+    0
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
@@ -135,13 +142,13 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
     // }
     let vpn_start = VirtAddr::from(_start);
     let vpn_end = VirtAddr::from(_start + _len);
-    let succ = used_unmap(vpn_start, vpn_end);
-    if succ {
-        return 0;
-    }
-    else {
+    if !judge_unmap_right(vpn_start.floor(), vpn_end.ceil()) {
         return -1;
     }
+    my_umap(vpn_start.floor(), vpn_end.ceil());
+
+    
+    0
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info

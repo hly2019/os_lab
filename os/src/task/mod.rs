@@ -87,6 +87,30 @@ impl TaskManager {
         inner.current_task
     }
 
+    pub fn my_munmap(&self, start_va: VirtPageNum, end_va: VirtPageNum) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.my_unmap(start_va, end_va);
+    }
+    pub fn my_mmap(&self, start_va: VirtPageNum, end_va: VirtPageNum, permission: MapPermission) {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.my_mmap(start_va, end_va, permission);
+    }
+
+
+    pub fn judge_unmap_right(&self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.judge_unmap_right(start_va, end_va)
+    }
+
+    pub fn judge_mmap_right(&self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.judge_map_right(start_va, end_va)
+    }
+
     pub fn map(&self, vpn_start: VirtAddr, vpn_end: VirtAddr, permission:MapPermission) -> bool {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
@@ -238,6 +262,22 @@ pub fn get_cur_task() -> usize {
 pub fn used_map(vpn_start: VirtAddr, vpn_end: VirtAddr, permission: MapPermission) -> bool {
     TASK_MANAGER.map(vpn_start, vpn_end, permission)
 }
+
+pub fn my_mmap(vpn_start: VirtPageNum, vpn_end: VirtPageNum, permission: MapPermission) {
+    TASK_MANAGER.my_mmap(vpn_start, vpn_end, permission);
+}
+pub fn my_umap(vpn_start: VirtPageNum, vpn_end: VirtPageNum) {
+    TASK_MANAGER.my_munmap(vpn_start, vpn_end);
+}
+
+pub fn judge_unmap_right(start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+    TASK_MANAGER.judge_unmap_right(start_va, end_va)
+}
+
+pub fn judge_map_right(start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+    TASK_MANAGER.judge_mmap_right(start_va, end_va)
+}
+
 
 pub fn used_unmap(vpn_start: VirtAddr, vpn_end: VirtAddr)-> bool {
     TASK_MANAGER.unmap(vpn_start, vpn_end)

@@ -90,6 +90,106 @@ impl MemorySet {
         // self.areas[flag].unmap(&mut self.page_table);
         // self.areas[flag].vpn_range = VPNRange::new(VirtPageNum::from(0),VirtPageNum::from(0));
     }
+
+
+
+    pub fn judge_map_right(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+        let mut start = start_va.0;
+        while start <= end_va.0 {
+            let mut flag = true;
+            for i in 0..self.areas.len() {
+                let area: &MapArea = &self.areas[i];
+                if area.data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
+                    flag = false;
+                }
+            }
+            if !flag { // no maparea contains start, fail.
+                return false;
+            }
+            start += 1;
+        }
+        return true
+    }
+
+    pub fn judge_unmap_right(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+        // for i in 0..self.areas.len() {
+        //     let area: &MapArea = &self.areas[i];
+        //     let mut start = start_va;
+        //     while start < end_va {
+        //         if area.data_frames.contains_key(&start) {
+        //             return false;
+        //         }
+        //         start = VirtPageNum::from(start.0 + 1);
+        //     }
+            
+        // }
+        let mut start = start_va.0;
+        while start <= end_va.0 {
+            let mut flag = false;
+            for i in 0..self.areas.len() {
+                let area: &MapArea = &self.areas[i];
+                if area.data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
+                    flag = true;
+                }
+            }
+            if !flag { // no maparea contains start, fail.
+                return false;
+            }
+            start += 1;
+        }
+        return true
+    }
+
+    pub fn my_mmap(&mut self, start_va: VirtPageNum, end_va: VirtPageNum, permission: MapPermission) {
+        let mut start = start_va.0;
+        let mut left = end_va.0;
+        let mut right = start_va.0;
+        while start <= end_va.0 {
+            let mut flag = false;
+            for i in 0..self.areas.len() {
+                let area: &MapArea = &self.areas[i];
+                if area.vpn_range.get_start().0 <= start && start <= area.vpn_range.get_end().0 { // 包含
+                    // 之前已经判断过，所有frames都不包含start的映射，可以直接添加
+                    flag = true;
+                    self.areas[i].map_one(&mut self.page_table, VirtPageNum::from(start));
+                }
+            }
+            if !flag { // 不包含
+                if start < left {
+                    left = start;
+                }
+                if start > right {
+                    right = start;
+                }
+            }
+            start += 1;
+        }
+        
+        self.push(MapArea::new(VirtAddr::from(VirtPageNum::from(left)), VirtAddr::from(VirtPageNum::from(right)),
+        MapType::Framed, permission), None);
+    }
+
+    pub fn my_unmap(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) {
+        let mut start = start_va.0;
+        while start <= end_va.0 {
+            for i in 0..self.areas.len() {
+                // let area: &MapArea = &self.areas[i];
+                self.areas[i].unmap_one(&mut self.page_table, VirtPageNum::from(start));
+            }
+            start += 1
+        }
+        let mut i = 0;
+        while i < self.areas.len() {
+            // let area: &MapArea = &self.areas[i];
+            if self.areas[i].data_frames.is_empty() {
+                self.areas.remove(i); // warning!! maybe cause an error.
+                i -= 1;
+            }
+            i += 1;
+        }
+
+    }
+
     pub fn include_framed_area(&mut self, start: VirtPageNum, end: VirtPageNum) -> bool {
         for i in 0..self.areas.len() {  
             let area = &self.areas[i];
