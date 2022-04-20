@@ -404,7 +404,7 @@ impl MapArea {
             map_perm,
         }
     }
-    pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
+    pub fn map_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> bool {
         let ppn: PhysPageNum;
         match self.map_type {
             MapType::Identical => {
@@ -421,7 +421,7 @@ impl MapArea {
 
         //     pte_flags |= PTEFlags::U;
         // }
-        page_table.map(vpn, ppn, pte_flags);
+        return page_table.map(vpn, ppn, pte_flags);
     }
     #[allow(unused)]
     pub fn unmap_one(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> bool {
@@ -434,16 +434,18 @@ impl MapArea {
         }
         page_table.unmap(vpn)
     }
-    pub fn map(&mut self, page_table: &mut PageTable) {
+    pub fn map(&mut self, page_table: &mut PageTable) -> bool {
         // let mut vpn = self.vpn_range.get_start().0;
         // let vpn_end = self.vpn_range.get_end().0;
         // while vpn <= vpn_end {
         // println!("self vpn range: {} ,end: {}", self.vpn_range.get_start().0, self.vpn_range.get_end().0);
+        let mut ret = true;
         for vpn in self.vpn_range {
             // println!("in traverse, vpn is: {}", vpn);
-            self.map_one(page_table, VirtPageNum::from(vpn));
+            ret &= self.map_one(page_table, VirtPageNum::from(vpn));
             // vpn += 1;
         }
+        return ret;
 
         // println!("self.data_fram len: {}, vpn range:", self.data_frames.len());
     }
