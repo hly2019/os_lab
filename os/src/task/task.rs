@@ -2,13 +2,14 @@
 
 use super::TaskContext;
 use super::{pid_alloc, KernelStack, PidHandle};
-use crate::config::TRAP_CONTEXT;
+use crate::config::{TRAP_CONTEXT, MAX_SYSCALL_NUM };
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 use core::cell::RefMut;
+
 
 /// Task control block structure
 ///
@@ -46,6 +47,11 @@ pub struct TaskControlBlockInner {
     pub children: Vec<Arc<TaskControlBlock>>,
     /// It is set when active exit or execution error occurs
     pub exit_code: i32,
+
+    /// syscall times
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    /// process first invoked
+    pub process_first_invoked_time:  usize,
 }
 
 /// Simple access to its internal fields
@@ -103,6 +109,8 @@ impl TaskControlBlock {
                     parent: None,
                     children: Vec::new(),
                     exit_code: 0,
+                    process_first_invoked_time: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM],
                 })
             },
         };
@@ -170,6 +178,8 @@ impl TaskControlBlock {
                     parent: Some(Arc::downgrade(self)),
                     children: Vec::new(),
                     exit_code: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM],
+                    process_first_invoked_time: 0,
                 })
             },
         });
