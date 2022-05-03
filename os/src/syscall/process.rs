@@ -69,6 +69,31 @@ pub fn sys_exec(path: *const u8) -> isize {
     }
 }
 
+//
+// YOUR JOB: 实现 sys_spawn 系统调用
+// ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC 
+pub fn sys_spawn(_path: *const u8) -> isize {
+    let token = current_user_token();
+    let path = translated_str(token, _path);
+    // let current_task = current_task().unwrap();
+    // let new_task = current_task.fork(); // new task 不必是fork来的
+    // let new_pid = new_task.pid.0;
+    // modify trap context of new_task, because it returns immediately after switching
+    // let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+    // trap_cx.x[10] = 0;
+    if let Some(data) = get_app_data_by_name(path.as_str()) {
+        let new_task = current_task().unwrap().spawn(data);
+        let new_pid = new_task.pid.0;
+        let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+        trap_cx.x[10] = 0;
+
+        add_task(new_task);
+        return new_pid as isize;
+    }
+    -1
+}
+
+
 /// If there is not a child process whose pid is same as given, return -1.
 /// Else if there is a child process but it is still running, return -2.
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
@@ -147,7 +172,13 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
 
 // YOUR JOB: 实现sys_set_priority，为任务添加优先级
 pub fn sys_set_priority(_prio: isize) -> isize {
-    -1
+    let current_task = current_task().unwrap();
+    let mut ret = -1;
+    if _prio >= 2 { 
+        ret = _prio; 
+    }
+    current_task.set_priority(_prio);
+    ret
 }
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
@@ -161,8 +192,7 @@ pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
     if _prot & !0x7 != 0 || _prot & 0x7 == 0 { // the port was illegal
         return -1;
     }
-    let token = current_user_token();
-    let mut flag = 0;
+
     let vpn_start = VirtAddr::from(_start);
     let vpn_end = VirtAddr::from(_start + _len);
     let mut permission = MapPermission::U;
@@ -201,9 +231,3 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
     0
 }
 
-//
-// YOUR JOB: 实现 sys_spawn 系统调用
-// ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC 
-pub fn sys_spawn(_path: *const u8) -> isize {
-    -1
-}

@@ -23,13 +23,15 @@ use lazy_static::*;
 use manager::fetch_task;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
-
+use crate::config::{MAX_SYSCALL_NUM };
 pub use context::TaskContext;
 pub use manager::add_task;
 pub use pid::{pid_alloc, KernelStack, PidHandle};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
 };
+
+use crate::mm::*;
 
 /// Make current task suspended and switch to the next task
 pub fn suspend_current_and_run_next() {
@@ -49,6 +51,53 @@ pub fn suspend_current_and_run_next() {
     // jump to scheduling cycle
     schedule(task_cx_ptr);
 }
+
+pub fn add_curtask_systime(syscall_id: usize) {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.syscall_times[syscall_id] += 1;
+
+}
+pub fn get_cur_task_systimes() ->[u32; MAX_SYSCALL_NUM] {
+    let task = current_task().unwrap();
+    let inner = task.inner_exclusive_access();
+    inner.syscall_times
+}
+
+pub fn judge_map_right(start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+    // let mut inner = self.inner.exclusive_access();
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+
+    inner.memory_set.judge_map_right(start_va, end_va)
+}
+pub fn judge_unmap_right(start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+    // let mut inner = self.inner.exclusive_access();
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+
+    inner.memory_set.judge_unmap_right(start_va, end_va)
+}
+pub fn my_mmap(start_va: VirtPageNum, end_va: VirtPageNum, permission: MapPermission) {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.memory_set.my_mmap(start_va, end_va, permission);
+}
+pub fn my_umap(start_va: VirtPageNum, end_va: VirtPageNum) {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.memory_set.my_unmap(start_va, end_va);
+}
+
+
+pub fn get_cur_task_first_invoked_time() -> usize {
+    let task = current_task().unwrap();
+    let inner = task.inner_exclusive_access();
+    inner.process_first_invoked_time
+}
+
+
+
 
 /// Exit current task, recycle process resources and switch to the next task
 pub fn exit_current_and_run_next(exit_code: i32) {
