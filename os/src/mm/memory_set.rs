@@ -64,6 +64,110 @@ impl MemorySet {
             None,
         );
     }
+
+
+
+    pub fn judge_map_right(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+        let mut start = start_va.0;
+        while start < end_va.0 {
+            let mut flag = true;
+            for i in 0..self.areas.len() {
+                let area: &MapArea = &self.areas[i];
+                if VirtPageNum::from(area.vpn_range.get_start().0).0 <= start 
+                && start < VirtPageNum::from(area.vpn_range.get_end().0).0 {
+                    if self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
+                        flag = false;
+                    }
+                }
+            }
+            if !flag { // no maparea contains start, fail.
+                println!("return: {}", false);
+                return false;
+            }
+            start += 1;
+        }
+        return true
+    }
+
+    pub fn my_mmap(&mut self, start_va: VirtPageNum, end_va: VirtPageNum, permission: MapPermission) {
+        let mut start = start_va.0;
+        let mut left = end_va.0;
+        let mut right = start_va.0;
+        while start < end_va.0 {
+            let mut flag = false;
+            for i in 0..self.areas.len() {
+                let area: &MapArea = &self.areas[i];
+                if VirtPageNum::from(area.vpn_range.get_start().0).0 <= start && start < VirtPageNum::from(area.vpn_range.get_end().0).0 { // 包含
+                    println!("hahahahahahah {}, start is {}", VirtPageNum::from(area.vpn_range.get_start().0).0, start);
+                    // 之前已经判断过，所有frames都不包含start的映射，可以直接添加
+                    flag = true;
+                    self.areas[i].map_one(&mut self.page_table, VirtPageNum::from(start));
+                    println!("malegebi!: {}, i is {}", self.areas[i].data_frames.contains_key(&VirtPageNum::from(65536)), i);
+                    println!("map one vpn: {}", start);
+                }
+            }
+            if !flag { // 不包含
+                if start < left {
+                    left = start;
+                }
+                if start > right {
+                    right = start;
+                }
+            }
+            start += 1;
+        }
+        right += 1;
+        // println!("caonimalegedashabi {}", VirtAddr::from(VirtPageNum::from(left)).0 / 4096);
+        self.insert_framed_area(VirtAddr::from(left * 4096), VirtAddr::from(right * 4096), permission);
+        // println!("shabishabi: {}",  area.data_frames.len());
+        println!("in memory map, add new maparea, left: {}, right: {}", left, right);
+    }
+
+
+
+
+    pub fn judge_unmap_right(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) -> bool {
+        let mut start = start_va.0;
+        while start < end_va.0 {
+            let mut flag = false;
+            for i in 0..self.areas.len() {
+                if self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)) { // some maparea contains start, ok
+                    flag = true;
+                }
+            }
+            if !flag { // no maparea contains start, fail.
+                return false;
+            }
+            start += 1;
+        }
+        return true
+    }
+
+    pub fn my_unmap(&mut self, start_va: VirtPageNum, end_va: VirtPageNum) {
+        let mut start = start_va.0;
+        while start < end_va.0 {
+            for i in 0..self.areas.len() {
+                if self.areas[i].data_frames.contains_key(&VirtPageNum::from(start)) {
+
+                    self.areas[i].unmap_one(&mut self.page_table, VirtPageNum::from(start));
+                    println!("unmap one vpn: {}", start);
+                }
+                // let area: &MapArea = &self.areas[i];
+            }
+            start += 1
+        }
+        let mut i = 0;
+        while i < self.areas.len() {
+            // let area: &MapArea = &self.areas[i];
+            if self.areas[i].data_frames.is_empty() {
+                self.areas.remove(i); // warning!! maybe cause an error.
+                i -= 1;
+            }
+            i += 1;
+        }
+
+    }
+
     pub fn remove_area_with_start_vpn(&mut self, start_vpn: VirtPageNum) {
         if let Some((idx, area)) = self
             .areas

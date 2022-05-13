@@ -1,15 +1,16 @@
 //! Process management syscalls
 
-use crate::mm::{translated_refmut, translated_ref, translated_str};
+use crate::mm::{translated_refmut, translated_ref, translated_str, PageTable, VirtAddr, MapPermission, VirtPageNum};
 use crate::task::{
     add_task, current_task, current_user_token, exit_current_and_run_next,
-    suspend_current_and_run_next, TaskStatus,
+    suspend_current_and_run_next, TaskStatus,judge_map_right, my_mmap, judge_unmap_right, my_umap,
+    get_cur_task_systimes, get_cur_task_first_invoked_time,
 };
 use crate::fs::{open_file, OpenFlags};
 use crate::timer::get_time_us;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use crate::config::MAX_SYSCALL_NUM;
+use crate::config:: {MAX_SYSCALL_NUM, PAGE_SIZE};
 use alloc::string::String;
 
 #[repr(C)]
@@ -57,19 +58,7 @@ pub fn sys_fork() -> isize {
     new_pid as isize
 }
 
-/// Syscall Exec which accepts the elf path
-pub fn sys_exec(path: *const u8) -> isize {
-    let token = current_user_token();
-    let path = translated_str(token, path);
-    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
-        let all_data = app_inode.read_all();
-        let task = current_task().unwrap();
-        task.exec(all_data.as_slice());
-        0
-    } else {
-        -1
-    }
-}
+
 
 
 /// If there is not a child process whose pid is same as given, return -1.
@@ -112,37 +101,132 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 // YOUR JOB: 引入虚地址后重写 sys_get_time
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
     let _us = get_time_us();
-    // unsafe {
-    //     *ts = TimeVal {
-    //         sec: us / 1_000_000,
-    //         usec: us % 1_000_000,
-    //     };
-    // }
+    let token = current_user_token();
+    let page_table = PageTable::from_token(token);
+    let start_va = VirtAddr::from(_ts as usize);
+    let vpn = start_va.floor();
+    let ppn = page_table.translate(vpn).unwrap().ppn().0;
+    let time_ptr = ppn << 12 | start_va.page_offset(); // ppn左移12位拼上offset
+    unsafe {
+        *(time_ptr as *mut TimeVal) = TimeVal {
+            sec: _us / 1_000_000,
+            usec: _us % 1_000_000,
+        };
+    }
     0
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    -1
+    let token = current_user_token();
+    let page_table = PageTable::from_token(token);
+    let start_va = VirtAddr::from(ti as usize);
+    let vpn = start_va.floor();
+    let ppn = page_table.translate(vpn).unwrap().ppn().0;
+    let time_ptr = ppn << 12 | start_va.page_offset() as usize; // ppn左移12位拼上offset
+    let arr = get_cur_task_systimes();
+    unsafe{
+        for i in 0..MAX_SYSCALL_NUM{
+            (*(time_ptr as *mut TaskInfo)).syscall_times[i] = arr[i];
+            
+        }
+        (*(time_ptr as *mut TaskInfo)).status = TaskStatus::Running; // TODO:可能需要修改
+        // println!("in process: {}",(*(time_ptr as *mut TaskInfo)).status == TaskStatus::Running );
+        (*(time_ptr as *mut TaskInfo)).time = (get_time_us() - get_cur_task_first_invoked_time()) / 1000;
+    }
+    0
 }
 
 // YOUR JOB: 实现sys_set_priority，为任务添加优先级
 pub fn sys_set_priority(_prio: isize) -> isize {
-    -1
+    let current_task = current_task().unwrap();
+    let mut ret = -1;
+    if _prio >= 2 { 
+        ret = _prio; 
+    }
+    current_task.set_priority(_prio);
+    ret
 }
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    -1
+pub fn sys_mmap(_start: usize, _len: usize, _prot: usize) -> isize {
+    if _len == 0 {
+        return 0;
+    }
+    if _start % PAGE_SIZE != 0{// the address hasn't been aligned
+        return -1;
+    }
+    if _prot & !0x7 != 0 || _prot & 0x7 == 0 { // the port was illegal
+        return -1;
+    }
+
+    let vpn_start = VirtAddr::from(_start);
+    let vpn_end = VirtAddr::from(_start + _len);
+    let mut permission = MapPermission::U;
+    if _prot & 1 != 0 { // readable
+        permission |= MapPermission::R;
+    }
+    if _prot & 2 != 0 { // writable
+        permission |= MapPermission::W;
+    }
+    if _prot & 4 != 0 {
+        permission |= MapPermission::X;
+    }
+    let ceil = VirtPageNum::from(vpn_end.ceil().0);
+    println!("in mmap, start: {}, end: {}", VirtPageNum::from(vpn_start.floor().0).0, VirtPageNum::from(vpn_end.ceil().0).0);
+
+    if !judge_map_right(vpn_start.floor(), ceil) {
+        return -1;
+    }
+    my_mmap(vpn_start.floor(), ceil, permission);
+    0
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    -1
+    if _start % PAGE_SIZE != 0 {// the address hasn't been aligned
+        return -1;
+    }
+    let vpn_start = VirtAddr::from(_start);
+    let vpn_end = VirtAddr::from(_start + _len);
+    let ceil = VirtPageNum::from(vpn_end.ceil().0);
+    if !judge_unmap_right(vpn_start.floor(), ceil) {
+        return -1;
+    }
+    my_umap(vpn_start.floor(), ceil);
+
+    
+    0
 }
 
 //
 // YOUR JOB: 实现 sys_spawn 系统调用
 // ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC 
 pub fn sys_spawn(_path: *const u8) -> isize {
+    let token = current_user_token();
+    let path = translated_str(token, _path);
+    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+        let all_data = app_inode.read_all();
+        let new_task = current_task().unwrap().spawn(all_data.as_slice());
+        let new_pid = new_task.pid.0;
+        let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+        trap_cx.x[10] = 0;
+
+        add_task(new_task);
+        return new_pid as isize;
+    }
     -1
+}
+
+/// Syscall Exec which accepts the elf path
+pub fn sys_exec(path: *const u8) -> isize {
+    let token = current_user_token();
+    let path = translated_str(token, path);
+    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+        let all_data = app_inode.read_all();
+        let task = current_task().unwrap();
+        task.exec(all_data.as_slice());
+        0
+    } else {
+        -1
+    }
 }

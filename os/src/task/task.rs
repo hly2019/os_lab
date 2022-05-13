@@ -2,7 +2,7 @@
 
 use super::TaskContext;
 use super::{pid_alloc, KernelStack, PidHandle};
-use crate::config::TRAP_CONTEXT;
+use crate::config::{TRAP_CONTEXT, MAX_SYSCALL_NUM };
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
@@ -50,6 +50,14 @@ pub struct TaskControlBlockInner {
     /// It is set when active exit or execution error occurs
     pub exit_code: i32,
     pub fd_table: Vec<Option<Arc<dyn File + Send + Sync>>>,
+    /// syscall times
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    /// process first invoked
+    pub process_first_invoked_time:  usize,
+
+    pub priority: isize,
+    
+    pub stride: usize,
 }
 
 /// Simple access to its internal fields
@@ -116,6 +124,10 @@ impl TaskControlBlock {
                     parent: None,
                     children: Vec::new(),
                     exit_code: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM],
+                    process_first_invoked_time: 0,
+                    stride: 0,
+                    priority: 16,
                     fd_table: alloc::vec![
                         // 0 -> stdin
                         Some(Arc::new(Stdin)),
@@ -163,6 +175,69 @@ impl TaskControlBlock {
         );
         // **** release inner automatically
     }
+
+    pub fn set_priority(self:  &Arc<TaskControlBlock>, priority: isize) {
+        let mut inner = self.inner_exclusive_access();
+        inner.priority = priority;
+    }
+
+    pub fn spawn(self: &Arc<TaskControlBlock>, elf_data: &[u8]) -> Arc<TaskControlBlock> {
+        let (memory_set, user_sp, entry_point) = MemorySet::from_elf(elf_data);
+        let trap_cx_ppn = memory_set
+            .translate(VirtAddr::from(TRAP_CONTEXT).into())
+            .unwrap()
+            .ppn();
+        let mut parent_inner = self.inner_exclusive_access();
+        let pid_handle = pid_alloc();
+        let kernel_stack = KernelStack::new(&pid_handle);
+        let kernel_stack_top = kernel_stack.get_top();
+        let mut new_fd_table: Vec<Option<Arc<dyn File + Send + Sync>>> = Vec::new();
+        // clone all fds from parent to child
+        for fd in parent_inner.fd_table.iter() {
+            if let Some(file) = fd {
+                new_fd_table.push(Some(file.clone()));
+            } else {
+                new_fd_table.push(None);
+            }
+        }
+        let task_control_block = Arc::new(TaskControlBlock {
+            pid: pid_handle,
+            kernel_stack,
+            inner: unsafe {
+                UPSafeCell::new(TaskControlBlockInner {
+                    trap_cx_ppn,
+                    base_size: parent_inner.base_size,
+                    task_cx: TaskContext::goto_trap_return(kernel_stack_top),
+                    task_status: TaskStatus::Ready,
+                    memory_set,
+                    parent: Some(Arc::downgrade(self)),
+                    children: Vec::new(),
+                    exit_code: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM],
+                    process_first_invoked_time: 0,
+                    stride: 0,
+                    priority: 16,
+                    fd_table: new_fd_table,
+                })
+            },
+        });
+        parent_inner.children.push(task_control_block.clone());
+        let trap_cx = task_control_block.inner_exclusive_access().get_trap_cx();
+        *trap_cx = TrapContext::app_init_context(
+            entry_point,
+            user_sp,
+            KERNEL_SPACE.exclusive_access().token(),
+            kernel_stack_top,
+            trap_handler as usize,
+        );
+
+        task_control_block
+
+
+    }
+
+
+
     /// Fork from parent to child
     pub fn fork(self: &Arc<TaskControlBlock>) -> Arc<TaskControlBlock> {
         // ---- access parent PCB exclusively
@@ -199,6 +274,10 @@ impl TaskControlBlock {
                     parent: Some(Arc::downgrade(self)),
                     children: Vec::new(),
                     exit_code: 0,
+                    syscall_times: [0; MAX_SYSCALL_NUM],
+                    process_first_invoked_time: 0,
+                    stride: 0,
+                    priority: 16,
                     fd_table: new_fd_table,
                 })
             },
