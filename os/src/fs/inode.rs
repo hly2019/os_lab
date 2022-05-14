@@ -2,14 +2,14 @@ use easy_fs::{
     EasyFileSystem,
     Inode,
 };
-use crate::drivers::BLOCK_DEVICE;
+use crate::{drivers::BLOCK_DEVICE, task::current_user_token};
 use crate::sync::UPSafeCell;
 use alloc::sync::Arc;
 use lazy_static::*;
 use bitflags::*;
 use alloc::vec::Vec;
-use super::File;
-use crate::mm::UserBuffer;
+use super::{File, Stat, StatMode};
+use crate::mm::{UserBuffer, PageTable, VirtAddr};
 
 /// A wrapper around a filesystem inode
 /// to implement File trait atop
@@ -22,7 +22,7 @@ pub struct OSInode {
 /// The OS inode inner in 'UPSafeCell'
 pub struct OSInodeInner {
     offset: usize,
-    inode: Arc<Inode>,
+    pub inode: Arc<Inode>,
 }
 
 impl OSInode {
@@ -101,6 +101,15 @@ impl OpenFlags {
     }
 }
 
+
+pub fn linkat(oldname: &str, newname: &str) -> isize {
+    return ROOT_INODE.linkat(oldname, newname);
+}
+
+pub fn unlinkat(name: &str) -> isize {
+    return ROOT_INODE.unlinkat(name);
+}
+
 /// Open a file by path
 pub fn open_file(name: &str, flags: OpenFlags) -> Option<Arc<OSInode>> {
     let (readable, writable) = flags.read_write();
@@ -165,5 +174,29 @@ impl File for OSInode {
             total_write_size += write_size;
         }
         total_write_size
+    }
+
+    fn get_state(&self, buf: *mut Stat) {
+        let mut inner = self.inner.exclusive_access();
+        let token = current_user_token();
+        let page_table = PageTable::from_token(token);
+        let start_va = VirtAddr::from(buf as usize);
+        let vpn = start_va.floor();
+        let ppn = page_table.translate(vpn).unwrap().ppn().0;
+        let ptr = ppn << 12 | start_va.page_offset() as usize; // ppn左移12位拼上offset
+        unsafe {
+            (*(ptr as *mut Stat)).dev = 0;
+            (*(ptr as *mut Stat)).pad = [0u64; 7];
+            // ROOT_INODE;
+            (*(ptr as *mut Stat)).ino = inner.inode.as_ref().get_inode_id() as u64;
+            // (*(ptr as *mut Stat)).mode =
+            if  ROOT_INODE.get_disk_inode_is_dic() == true {
+                (*(ptr as *mut Stat)).mode =StatMode::DIR;
+            }
+            else {
+                (*(ptr as *mut Stat)).mode =StatMode::FILE;
+            }
+            (*(ptr as *mut Stat)).nlink = inner.inode.as_ref().countlink((*(ptr as *mut Stat)).ino as u32);
+        }
     }
 }
