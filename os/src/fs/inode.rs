@@ -189,14 +189,19 @@ impl File for OSInode {
             (*(ptr as *mut Stat)).pad = [0u64; 7];
             // ROOT_INODE;
             (*(ptr as *mut Stat)).ino = inner.inode.as_ref().get_inode_id() as u64;
+            println!("inode in is {}", (*(ptr as *mut Stat)).ino);
             // (*(ptr as *mut Stat)).mode =
-            if  ROOT_INODE.get_disk_inode_is_dic() == true {
+            if  inner.inode.as_ref().get_disk_inode_is_dic() {
                 (*(ptr as *mut Stat)).mode =StatMode::DIR;
             }
             else {
                 (*(ptr as *mut Stat)).mode =StatMode::FILE;
             }
-            (*(ptr as *mut Stat)).nlink = inner.inode.as_ref().countlink((*(ptr as *mut Stat)).ino as u32);
+            println!("id: {}", (*(ptr as *mut Stat)).ino);
+            println!("real inode number is: {}", ROOT_INODE.get_id_by_name("fname2"));
+            (*(ptr as *mut Stat)).nlink = ROOT_INODE.countlink((*(ptr as *mut Stat)).ino as u32);
+            println!("inode nlink is {}", (*(ptr as *mut Stat)).nlink);
+
         }
     }
 }

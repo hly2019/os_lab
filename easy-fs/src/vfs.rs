@@ -113,6 +113,28 @@ impl Inode {
         return self.fs.lock().get_node_id(block_id, block_offset);
     }
 
+    pub fn get_id_by_name(&self, name: &str) -> u32{
+        let mut ret = 1212;
+        self.read_disk_inode(|disk_inode| { // check file exit, get id
+            let file_count = (disk_inode.size as usize) / DIRENT_SZ;
+            for i in 0..file_count {
+                let mut dirent = DirEntry::empty();
+                assert_eq!(
+                    disk_inode.read_at(
+                        i * DIRENT_SZ,
+                        dirent.as_bytes_mut(),
+                        &self.block_device,
+                    ),
+                    DIRENT_SZ,
+                );
+                if dirent.name() == name {
+                    // ret = dirent.inode_number();
+                }
+            }
+        }); 
+        return ret;
+    }
+
     pub fn countlink(&self, id: u32) -> u32 {
         let mut ret = 0;
         self.read_disk_inode(|disk_inode| { // check file exit, get id
@@ -184,7 +206,7 @@ impl Inode {
     pub fn unlinkat(&self, name: &str) -> isize {
         let mut id = -1;
         let mut offset = 0;
-        self.read_disk_inode(|disk_inode| { // check file exit, get id
+        self.read_disk_inode(|disk_inode| { // check file exist, get id
             let file_count = (disk_inode.size as usize) / DIRENT_SZ;
             for i in 0..file_count {
                 let mut dirent = DirEntry::empty();
@@ -205,15 +227,8 @@ impl Inode {
         if id == -1 {
             return -1;
         }
-        self.modify_disk_inode(|root_inode| { // clear the dirent of id
-            let dirent = DirEntry::empty();
-            root_inode.write_at( 
-                offset,
-                dirent.as_bytes(),
-                &self.block_device,
-            );
-        });
-        let mut del = 1;
+
+        let mut num = 0;
         self.read_disk_inode(|disk_inode| { // check whether do we need to clear the file
             let file_count = (disk_inode.size as usize) / DIRENT_SZ;
             for i in 0..file_count {
@@ -227,15 +242,47 @@ impl Inode {
                     DIRENT_SZ,
                 );
                 if dirent.inode_number() == id as u32 {
-                    del = 0;
+                    num += 1;
                 }
             }
         });
-        if del == 1 { // delete the file.
-            let mut fs = self.fs.lock();
-            let (block_id, block_offset) = fs.get_disk_inode_pos(id as u32);
-            fs.dealloc_data(block_id);
+        // return -1;
+        if num == 1 { // delete the file.
+            let mut block_id = 0;
+            let mut block_offset = 0;
+            {
+                let fs = self.fs.lock();
+                (block_id, block_offset) = fs.get_disk_inode_pos(id as u32);
+            }
+            let node = Arc::new(Self::new(
+                block_id,
+                block_offset,
+                self.fs.clone(),
+                self.block_device.clone(),
+            ));
+            
+            node.clear(); // clear the file
+            self.modify_disk_inode(|root_inode| { // clear the dirent of id
+                let dirent = DirEntry::empty();
+                root_inode.write_at( 
+                    offset,
+                    dirent.as_bytes(),
+                    &self.block_device,
+                );
+            });
+            // fs.dealloc_data(block_id as u32); // clear current block
         }
+        else {
+            self.modify_disk_inode(|root_inode| { // clear the dirent of id
+                let dirent = DirEntry::empty();
+                root_inode.write_at( 
+                    offset,
+                    dirent.as_bytes(),
+                    &self.block_device,
+                );
+            }); 
+        }
+        
         return 0;
     }
 
@@ -346,6 +393,7 @@ impl Inode {
     }
     /// Clear the data in current inode
     pub fn clear(&self) {
+        // return;
         let mut fs = self.fs.lock();
         self.modify_disk_inode(|disk_inode| {
             let size = disk_inode.size;
