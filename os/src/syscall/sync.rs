@@ -15,11 +15,7 @@ pub fn sys_sleep(ms: usize) -> isize {
 // during sys_mutex_* and sys_semaphore_* syscalls
 pub fn sys_mutex_create(blocking: bool) -> isize {
     let process = current_process();
-    let mutex: Option<Arc<dyn Mutex>> = if !blocking {
-        Some(Arc::new(MutexSpin::new()))
-    } else {
-        Some(Arc::new(MutexBlocking::new()))
-    };
+
     let mut process_inner = process.inner_exclusive_access();
     if let Some(id) = process_inner
         .mutex_list
@@ -28,9 +24,19 @@ pub fn sys_mutex_create(blocking: bool) -> isize {
         .find(|(_, item)| item.is_none())
         .map(|(id, _)| id)
     {
+        let mutex: Option<Arc<dyn Mutex>> = if !blocking {
+            Some(Arc::new(MutexSpin::new(id)))
+        } else {
+            Some(Arc::new(MutexBlocking::new(id)))
+        };
         process_inner.mutex_list[id] = mutex;
         id as isize
     } else {
+        let mutex: Option<Arc<dyn Mutex>> = if !blocking {
+            Some(Arc::new(MutexSpin::new(process_inner.mutex_list.len())))
+        } else {
+            Some(Arc::new(MutexBlocking::new(process_inner.mutex_list.len())))
+        };
         process_inner.mutex_list.push(mutex);
         process_inner.mutex_list.len() as isize - 1
     }
