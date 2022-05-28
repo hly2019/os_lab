@@ -51,11 +51,15 @@ impl Mutex for MutexSpin {
             need[mtx_id] = 1; // need the lock
         } else {
             let cur_task = current_task().unwrap();
-            let need = &mut cur_task.inner_exclusive_access().mtx_need;
             let mtx_id = self.id;
-            need[mtx_id] = 0; // no longer need the lock 
-            let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
-            allocation[mtx_id] = 1; // alloc current lock to the thread
+            // {
+            //     let need = &mut cur_task.inner_exclusive_access().mtx_need;
+            //     need[mtx_id] = 0; // no longer need the lock 
+            // }
+            {
+                let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
+                allocation[mtx_id] = 1; // alloc current lock to the thread
+            }
         }
     }
     fn islocked(&self) -> usize {
@@ -74,6 +78,16 @@ impl Mutex for MutexSpin {
                 suspend_current_and_run_next();
                 continue;
             } else {
+                let mtx_id = self.id;
+                let cur_task = current_task().unwrap();
+                {            
+                    let need = &mut cur_task.inner_exclusive_access().mtx_need;
+                    need[mtx_id] = 0; // no longer need the lock 
+                }
+                {
+                    let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
+                    allocation[mtx_id] = 1; // alloc current lock to the thread
+                }
                 mutex_inner.locked = true;
                 return;
             }
@@ -82,7 +96,12 @@ impl Mutex for MutexSpin {
 
     fn unlock(&self) {
         let mut mutex_inner = self.inner.exclusive_access();
-
+        let mtx_id = self.id;
+        let cur_task = current_task().unwrap();
+        {
+            let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
+            allocation[mtx_id] = 0; // alloc current lock to the thread
+        }
         // let mut locked = self.locked.exclusive_access();
         mutex_inner.locked = false;
     }
@@ -164,7 +183,6 @@ impl Mutex for MutexBlocking {
     fn unlock(&self) {
         let mut mutex_inner = self.inner.exclusive_access();
         assert!(mutex_inner.locked);
-        println!("in unlock_________________________________");
         if let Some(waking_task) = mutex_inner.wait_queue.pop_front() {
             // println!("waking task: {}", )
             // 所有权转移给waiting task
