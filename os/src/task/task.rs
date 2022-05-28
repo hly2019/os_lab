@@ -85,10 +85,34 @@ impl TaskControlBlock {
                     task_cx: TaskContext::goto_trap_return(kstack_top),
                     task_status: TaskStatus::Ready,
                     exit_code: None,
-                    mtx_need: Vec::new(),
-                    mtx_allocation: Vec::new(),
-                    sem_need: Vec::new(),
-                    sem_allocation: Vec::new(),
+                    mtx_need: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
+                    mtx_allocation: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
+                    sem_need: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
+                    sem_allocation: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
                 })
             },
         }
@@ -140,10 +164,34 @@ impl TaskControlBlock {
                     task_cx: context,
                     task_status: TaskStatus::Ready,
                     exit_code: None,
-                    mtx_need: Vec::new(),
-                    mtx_allocation: Vec::new(),
-                    sem_need: Vec::new(),
-                    sem_allocation: Vec::new(),
+                    mtx_need: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
+                    mtx_allocation: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
+                    sem_need: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
+                    sem_allocation: {
+                        let mut ret = Vec::new();
+                        for i in 0..10 {
+                            ret.push(0);
+                        }
+                        ret
+                    },
                 })
             },
         }

@@ -2,6 +2,7 @@ use easy_fs::{
     EasyFileSystem,
     Inode,
 };
+use crate::console::print;
 use crate::drivers::BLOCK_DEVICE;
 use crate::sync::UPSafeCell;
 use alloc::sync::Arc;

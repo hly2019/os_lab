@@ -8,20 +8,24 @@ pub trait Mutex: Sync + Send {
     fn lock(&self);
     fn unlock(&self);
     fn islocked(&self) -> usize;
+    fn get_id(&self) -> usize;
+    
 }
 
 pub struct MutexSpin {
     // locked: UPSafeCell<bool>,
     inner: UPSafeCell<MutexSpinInner>,
+    id: usize,
+
 
 }
 pub struct MutexSpinInner {
     locked: bool,
     // wait_queue: VecDeque<Arc<TaskControlBlock>>,
-    id: usize,
 }
 impl MutexSpin {
     pub fn new(id: usize) -> Self {
+        println!("in mutex spin new");
         let process = current_process();
         let mut process_inner = process.inner_exclusive_access();
         let tasks = &mut process_inner.tasks;
@@ -43,14 +47,17 @@ impl MutexSpin {
             inner: unsafe {
                 UPSafeCell::new(MutexSpinInner {
                     locked: false,
-                    id: id,
                 })
             },
+            id: id,
         }
     }
 }
 
 impl Mutex for MutexSpin {
+    fn get_id(&self) -> usize {
+        return self.id;
+    }
     fn islocked(&self) -> usize {
         if self.inner.exclusive_access().locked {
             return 0;
@@ -67,14 +74,14 @@ impl Mutex for MutexSpin {
                 drop(mutex_inner);
                 let cur_task = current_task().unwrap();
                 let need = &mut cur_task.inner_exclusive_access().mtx_need;
-                let mtx_id = self.inner.exclusive_access().id;
+                let mtx_id = self.id;
                 need[mtx_id] = 1; // need the lock
                 suspend_current_and_run_next();
                 continue;
             } else {
                 let cur_task = current_task().unwrap();
                 let need = &mut cur_task.inner_exclusive_access().mtx_need;
-                let mtx_id = self.inner.exclusive_access().id;
+                let mtx_id = self.id;
                 need[mtx_id] = 0; // no longer need the lock 
                 let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
                 allocation[mtx_id] = 1; // alloc current lock to the thread
@@ -94,46 +101,34 @@ impl Mutex for MutexSpin {
 
 pub struct MutexBlocking {
     inner: UPSafeCell<MutexBlockingInner>,
+    id: usize,
+
 }
 
 pub struct MutexBlockingInner {
     locked: bool,
     wait_queue: VecDeque<Arc<TaskControlBlock>>,
-    id: usize,
 }
 
 impl MutexBlocking {
     pub fn new(id: usize) -> Self {
-        let process = current_process();
-        let mut process_inner = process.inner_exclusive_access();
-        let tasks = &mut process_inner.tasks;
-        for id in 0..tasks.len() {
-            // &mut tasks[id].unwrap().inner_exclusive_access().mtx_allocation;
-            let current_task = tasks[id].as_ref();
-            if let Some(current_task) = current_task {
-                let allocation = &mut current_task.inner_exclusive_access().mtx_allocation;
-                while allocation.len() < id + 1 { // expand allocation
-                    allocation.push(0);
-                }
-                let need = &mut current_task.inner_exclusive_access().mtx_need;
-                while need.len() < id + 1 { // expand need
-                    need.push(0);
-                }
-            }
-        }
+        println!("in mutex blocking new");
         Self {
             inner: unsafe {
                 UPSafeCell::new(MutexBlockingInner {
                     locked: false,
                     wait_queue: VecDeque::new(),
-                    id: id,
                 })
             },
+            id: id,
         }
     }
 }
 
 impl Mutex for MutexBlocking {
+    fn get_id(&self) -> usize {
+        return self.id;
+    }
     fn islocked(&self) -> usize {
         if self.inner.exclusive_access().locked {
             return 0;
@@ -150,17 +145,22 @@ impl Mutex for MutexBlocking {
             drop(mutex_inner);
             let cur_task = current_task().unwrap();
             let need = &mut cur_task.inner_exclusive_access().mtx_need;
-            let mtx_id = self.inner.exclusive_access().id;
+            println!("in lock");
+            let mtx_id = self.id;
             need[mtx_id] = 1; // need the lock
             block_current_and_run_next();
         } else {
             let cur_task = current_task().unwrap();
-            let need = &mut cur_task.inner_exclusive_access().mtx_need;
-            let mtx_id = self.inner.exclusive_access().id;
-            need[mtx_id] = 0; // no longer need the lock 
-            let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
-            allocation[mtx_id] = 1; // alloc current lock to the thread
-            mutex_inner.locked = true;
+            let mtx_id = self.get_id();
+            {
+                let need = &mut cur_task.inner_exclusive_access().mtx_need;
+                need[mtx_id] = 0; // no longer need the lock 
+            }
+            {
+                let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
+                allocation[mtx_id] = 1; // alloc current lock to the thread
+                mutex_inner.locked = true;
+            }
         }
     }
 
@@ -171,7 +171,7 @@ impl Mutex for MutexBlocking {
             // 所有权转移给waiting task
             {
                 let cur_task = current_task().unwrap();
-                let mtx_id = self.inner.exclusive_access().id;
+                let mtx_id = self.id;
                 let allocation = &mut cur_task.inner_exclusive_access().mtx_allocation;
                 allocation[mtx_id] = 0; // clear allocation
                 let next_allocation = &mut waking_task.inner_exclusive_access().mtx_allocation;
