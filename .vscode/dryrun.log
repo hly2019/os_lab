@@ -1,0 +1,6 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory `/Users/hly19/labs-2019011329'
+docker run --rm -it --mount type=bind,source=/Users/hly19/labs-2019011329,destination=/mnt dinghao188/rcore-tutorial
+ 
+make: Leaving directory `/Users/hly19/labs-2019011329'
+ 
